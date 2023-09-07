@@ -202,7 +202,7 @@ void Game::CreateGeometry()
 		// First, we need to describe the buffer we want Direct3D to make on the GPU
 		//  - Note that this variable is created on the stack since we only need it once
 		//  - After the buffer is created, this description variable is unnecessary
-		D3D11_BUFFER_DESC vbd	= {};
+		/*D3D11_BUFFER_DESC vbd = {};
 		vbd.Usage				= D3D11_USAGE_IMMUTABLE;	// Will NEVER change
 		vbd.ByteWidth			= sizeof(Vertex) * 3;       // 3 = number of vertices in the buffer
 		vbd.BindFlags			= D3D11_BIND_VERTEX_BUFFER; // Tells Direct3D this is a vertex buffer
@@ -218,7 +218,7 @@ void Game::CreateGeometry()
 
 		// Actually create the buffer on the GPU with the initial data
 		// - Once we do this, we'll NEVER CHANGE DATA IN THE BUFFER AGAIN
-		device->CreateBuffer(&vbd, &initialVertexData, vertexBuffer.GetAddressOf());
+		device->CreateBuffer(&vbd, &initialVertexData, vertexBuffer.GetAddressOf());*/
 	}
 
 	// Create an INDEX BUFFER
@@ -230,7 +230,7 @@ void Game::CreateGeometry()
 		// Describe the buffer, as we did above, with two major differences
 		//  - Byte Width (3 unsigned integers vs. 3 whole vertices)
 		//  - Bind Flag (used as an index buffer instead of a vertex buffer) 
-		D3D11_BUFFER_DESC ibd	= {};
+		/*D3D11_BUFFER_DESC ibd = {};
 		ibd.Usage				= D3D11_USAGE_IMMUTABLE;	// Will NEVER change
 		ibd.ByteWidth			= sizeof(unsigned int) * 3;	// 3 = number of indices in the buffer
 		ibd.BindFlags			= D3D11_BIND_INDEX_BUFFER;	// Tells Direct3D this is an index buffer
@@ -244,7 +244,27 @@ void Game::CreateGeometry()
 
 		// Actually create the buffer with the initial data
 		// - Once we do this, we'll NEVER CHANGE THE BUFFER AGAIN
-		device->CreateBuffer(&ibd, &initialIndexData, indexBuffer.GetAddressOf());
+		device->CreateBuffer(&ibd, &initialIndexData, indexBuffer.GetAddressOf());*/
+
+		mesh1 = std::make_shared<Mesh>(vertices, 3, indices, 3, device, context);
+
+		Vertex vertices2[] =
+		{
+			{ XMFLOAT3(-0.85f, +0.75f, +0.0f), red },
+			{ XMFLOAT3(-0.75f, -0.5f, +0.0f), blue },
+			{ XMFLOAT3(-1.0f, -0.75f, +0.0f), green },
+		};
+
+		mesh2 = std::make_shared<Mesh>(vertices2, 3, indices, 3, device, context);
+		
+		Vertex vertices3[] =
+		{
+			{ XMFLOAT3(+0.8f, -0.5f, +0.0f), red },
+			{ XMFLOAT3(+0.9f, -0.75f, +0.0f), blue },
+			{ XMFLOAT3(+0.9f, -0.6f, +0.0f), blue },
+		};
+
+		mesh3 = std::make_shared<Mesh>(vertices3, 4, indices, 3, device, context);
 	}
 }
 
@@ -290,16 +310,16 @@ void Game::Draw(float deltaTime, float totalTime)
 	// DRAW geometry
 	// - These steps are generally repeated for EACH object you draw
 	// - Other Direct3D calls will also be necessary to do more complex things
-	UINT stride = sizeof(Vertex);
-	UINT offset = 0;
+	//UINT stride = sizeof(Vertex);
+	//UINT offset = 0;
 	{
 		// Set buffers in the input assembler (IA) stage
 		//  - Do this ONCE PER OBJECT, since each object may have different geometry
 		//  - For this demo, this step *could* simply be done once during Init()
 		//  - However, this needs to be done between EACH DrawIndexed() call
 		//     when drawing different geometry, so it's here as an example
-		context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
-		context->IASetIndexBuffer(indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+		//context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
+		//context->IASetIndexBuffer(indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 
 		// Tell Direct3D to draw
 		//  - Begins the rendering pipeline on the GPU
@@ -307,11 +327,16 @@ void Game::Draw(float deltaTime, float totalTime)
 		//  - This will use all currently set Direct3D resources (shaders, buffers, etc)
 		//  - DrawIndexed() uses the currently set INDEX BUFFER to look up corresponding
 		//     vertices in the currently set VERTEX BUFFER
-		context->DrawIndexed(
+		/*context->DrawIndexed(
 			3,     // The number of indices to use (we could draw a subset if we wanted)
 			0,     // Offset to the first index we want to use
-			0);    // Offset to add to each index when looking up vertices
+			0);*/    // Offset to add to each index when looking up vertices
 	}
+
+	//Calls each of the draw methods for each mesh
+	mesh1->Draw();
+	mesh2->Draw();
+	mesh3->Draw();
 
 	// Frame END
 	// - These should happen exactly ONCE PER FRAME
