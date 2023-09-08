@@ -7,7 +7,7 @@ Mesh::Mesh(Vertex vertices[], int numVertices, unsigned int indices[], int numIn
 
     D3D11_BUFFER_DESC vbd = {};
     vbd.Usage = D3D11_USAGE_IMMUTABLE;
-    vbd.ByteWidth = sizeof(Vertex) * 3;
+    vbd.ByteWidth = sizeof(Vertex) * (UINT)numVertices;
     vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     vbd.CPUAccessFlags = 0;
     vbd.MiscFlags = 0;
@@ -20,7 +20,7 @@ Mesh::Mesh(Vertex vertices[], int numVertices, unsigned int indices[], int numIn
 
     D3D11_BUFFER_DESC ibd = {};
     ibd.Usage = D3D11_USAGE_IMMUTABLE;
-    ibd.ByteWidth = sizeof(unsigned int) * 3;
+    ibd.ByteWidth = sizeof(unsigned int) * (UINT)meshBufferIndices;
     ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
     ibd.CPUAccessFlags = 0;
     ibd.MiscFlags = 0;

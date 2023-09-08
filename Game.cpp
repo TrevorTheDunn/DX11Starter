@@ -166,6 +166,8 @@ void Game::CreateGeometry()
 	XMFLOAT4 red	= XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
 	XMFLOAT4 green	= XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
 	XMFLOAT4 blue	= XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
+	XMFLOAT4 black = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+	XMFLOAT4 white = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	// Set up the vertices of the triangle we would like to draw
 	// - We're going to copy this array, exactly as it exists in CPU memory
@@ -246,25 +248,37 @@ void Game::CreateGeometry()
 		// - Once we do this, we'll NEVER CHANGE THE BUFFER AGAIN
 		device->CreateBuffer(&ibd, &initialIndexData, indexBuffer.GetAddressOf());*/
 
-		mesh1 = std::make_shared<Mesh>(vertices, 3, indices, 3, device, context);
+		mesh1 = std::make_shared<Mesh>(vertices, ARRAYSIZE(vertices), indices, 3, device, context);
 
 		Vertex vertices2[] =
 		{
-			{ XMFLOAT3(-0.85f, +0.75f, +0.0f), red },
-			{ XMFLOAT3(-0.75f, -0.5f, +0.0f), blue },
-			{ XMFLOAT3(-1.0f, -0.75f, +0.0f), green },
+			{ XMFLOAT3(-0.75f, +0.75f, +0.0f), red },
+			{ XMFLOAT3(-0.65f, +0.55f, +0.0f), blue},
+			{ XMFLOAT3(-0.65f, +0.25f, +0.0f), green},
+			{ XMFLOAT3(-0.85f, +0.25f, +0.0f), white},
+			{ XMFLOAT3(-0.85f, +0.55f, +0.0f), black},
+			{ XMFLOAT3(-0.75f, +0.5f, +0.0f), white},
 		};
 
-		mesh2 = std::make_shared<Mesh>(vertices2, 3, indices, 3, device, context);
-		
+		unsigned int indices2[] = {0, 1, 5, 1, 2, 5, 2, 3, 5, 3, 4, 5, 4, 0, 5};
+
+		mesh2 = std::make_shared<Mesh>(vertices2, ARRAYSIZE(vertices2), indices2, ARRAYSIZE(indices2), device, context);
+
 		Vertex vertices3[] =
 		{
-			{ XMFLOAT3(+0.8f, -0.5f, +0.0f), red },
-			{ XMFLOAT3(+0.9f, -0.75f, +0.0f), blue },
-			{ XMFLOAT3(+0.9f, -0.6f, +0.0f), blue },
+			{XMFLOAT3(+0.7f, -0.5f, +0.0f), red},
+			{XMFLOAT3(+0.9f, -0.5f, +0.0f), black},
+			{XMFLOAT3(+0.9f, -0.8f, +0.0f), black},
+			{XMFLOAT3(+0.7f, -0.8f, +0.0f), red},
 		};
 
-		mesh3 = std::make_shared<Mesh>(vertices3, 4, indices, 3, device, context);
+		unsigned int indices3[] = {0, 1, 2, 2, 3, 0};
+
+		mesh3 = std::make_shared<Mesh>(vertices3, ARRAYSIZE(vertices3), indices3, ARRAYSIZE(indices3), device, context);
+
+		meshes.push_back(mesh1);
+		meshes.push_back(mesh2);
+		meshes.push_back(mesh3);
 	}
 }
 
@@ -334,9 +348,19 @@ void Game::Draw(float deltaTime, float totalTime)
 	}
 
 	//Calls each of the draw methods for each mesh
-	mesh1->Draw();
-	mesh2->Draw();
-	mesh3->Draw();
+	//mesh1->Draw();
+	//mesh2->Draw();
+	//mesh3->Draw();
+
+	//for (auto& m : meshes)
+	//{
+	//	m->Draw();
+	//}
+
+	for (int i = 0; i < meshes.size(); i++)
+	{
+		meshes[i]->Draw();
+	}
 
 	// Frame END
 	// - These should happen exactly ONCE PER FRAME

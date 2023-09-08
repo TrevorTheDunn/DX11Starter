@@ -5,6 +5,7 @@
 #include <wrl/client.h> // Used for ComPtr - a smart pointer for COM objects
 #include <memory> //needed for shared_ptr
 #include "Mesh.h"
+#include <vector>
 
 class Game 
 	: public DXCore
@@ -45,5 +46,7 @@ private:
 	std::shared_ptr<Mesh> mesh1;
 	std::shared_ptr<Mesh> mesh2;
 	std::shared_ptr<Mesh> mesh3;
+
+	std::vector<std::shared_ptr<Mesh>> meshes;
 };
 
