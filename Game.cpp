@@ -334,6 +334,38 @@ void Game::Update(float deltaTime, float totalTime)
 	//Show the demo window
 	ImGui::ShowDemoWindow();
 
+	int value = 0;
+
+	//Testing ImGui Window
+	/*{
+		ImGui::Begin("My First Window");
+
+		ImGui::Text("This text is in the window.");
+
+		ImGui::SliderInt("Choose a number", &value, 0, 100);
+
+		if (ImGui::Button("Press to increment"))
+		{
+			value++;
+		}
+
+		ImGui::End();
+	}*/
+
+	//Creation of custom ImGui Window
+	{
+		//Header Text for the Window
+		ImGui::Begin("Assignment 3 Window");
+
+		//Tracker for the framerate
+		ImGui::Text("Framerate: %f", ImGui::GetIO().Framerate);
+		
+		//Tracker for the Window Dimensions
+		ImGui::Text("Window Dimensions: %i x %i", this->windowWidth, this->windowHeight);
+
+		ImGui::End();
+	}
+
 	// Example input checking: Quit if the escape key is pressed
 	if (Input::GetInstance().KeyDown(VK_ESCAPE))
 		Quit();
