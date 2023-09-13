@@ -55,5 +55,9 @@ private:
 	std::vector<std::shared_ptr<Mesh>> meshes;
 
 	Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
+
+	//Variables for Task 7, modifying offset and tint from UI
+	DirectX::XMFLOAT3 offset;
+	DirectX::XMFLOAT4 tint;
 };
 

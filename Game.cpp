@@ -115,6 +115,9 @@ void Game::Init()
 
 	//Creates the buffer
 	device->CreateBuffer(&cbDesc, 0, vsConstantBuffer.GetAddressOf());
+
+	offset = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	tint = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 // --------------------------------------------------------
@@ -380,6 +383,15 @@ void Game::Update(float deltaTime, float totalTime)
 		//Tracker for the Window Dimensions
 		ImGui::Text("Window Dimensions: %i x %i", this->windowWidth, this->windowHeight);
 
+		//TASK 7 - OFFSET AND COLOR CHANGE
+		//You'll probably need variables for these pieces of data, as they need to persist across frames
+
+		//OFFSET - To edit a 3 component vector with ImGui, use the DragFloat3() function
+		ImGui::DragFloat3("Offset", &offset.x);
+
+		//COLOR - To edit a 4-component color with ImGui, use the ColorEdit4() function
+		ImGui::ColorEdit4("4 component RGBA Color Editor", &tint.x);
+
 		ImGui::End();
 	}
 
@@ -395,8 +407,10 @@ void Game::Draw(float deltaTime, float totalTime)
 {
 	//Creates a local variable of the struct and fills out its variables
 	VertexShaderExternalData vsData;
-	vsData.colorTint = XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f);
-	vsData.offset = XMFLOAT3(0.25f, 0.0f, 0.0f);
+	//vsData.colorTint = XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f);
+	//vsData.offset = XMFLOAT3(0.25f, 0.0f, 0.0f);
+	vsData.colorTint = tint;
+	vsData.offset = offset;
 
 	//Maps the resource, copies it over, and then unmaps the resource
 	D3D11_MAPPED_SUBRESOURCE mappedBuffer = {};
