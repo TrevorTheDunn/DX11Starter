@@ -7,6 +7,9 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #include <d3dcompiler.h>
 
+//For Constant Buffer(?)
+#include "BufferStructs.h"
+
 // For the DirectX Math library
 using namespace DirectX;
 
@@ -98,6 +101,20 @@ void Game::Init()
 	ImGui::StyleColorsDark();
 	//ImGui::StyleColorsLight();
 	//ImGui::StyleColorsClassic();
+
+	//Get size as the next multiple of 16 (rather than hardcoding a size)
+	unsigned int size = sizeof(VertexShaderExternalData);
+	size = (size + 15) / 16 * 16; //Will work even if the struct size changes
+
+	//Describe the constant buffer
+	D3D11_BUFFER_DESC cbDesc = {}; //Sets struct to all zeroes
+	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cbDesc.ByteWidth = size; //Must be multiple of 16
+	cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	cbDesc.Usage = D3D11_USAGE_DYNAMIC;
+
+	//Creates the buffer
+	device->CreateBuffer(&cbDesc, 0, vsConstantBuffer.GetAddressOf());
 }
 
 // --------------------------------------------------------
@@ -376,6 +393,25 @@ void Game::Update(float deltaTime, float totalTime)
 // --------------------------------------------------------
 void Game::Draw(float deltaTime, float totalTime)
 {
+	//Creates a local variable of the struct and fills out its variables
+	VertexShaderExternalData vsData;
+	vsData.colorTint = XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f);
+	vsData.offset = XMFLOAT3(0.25f, 0.0f, 0.0f);
+
+	//Maps the resource, copies it over, and then unmaps the resource
+	D3D11_MAPPED_SUBRESOURCE mappedBuffer = {};
+	context->Map(vsConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBuffer);
+
+	memcpy(mappedBuffer.pData, &vsData, sizeof(vsData));
+
+	context->Unmap(vsConstantBuffer.Get(), 0);
+
+	//Binds the constant buffer
+	context->VSSetConstantBuffers(
+		0,	//Which slot (register) to bind the buffer to
+		1,	//How many are we activating? Can do multiple at once
+		vsConstantBuffer.GetAddressOf());	//Array of buffers (or the address of one)
+
 	// Frame START
 	// - These things should happen ONCE PER FRAME
 	// - At the beginning of Game::Draw() before drawing *anything*

@@ -53,5 +53,7 @@ private:
 	std::shared_ptr<Mesh> mesh3;
 
 	std::vector<std::shared_ptr<Mesh>> meshes;
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
 };
 
