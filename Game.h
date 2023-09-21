@@ -12,6 +12,8 @@
 #include "ImGui/imgui_impl_dx11.h"
 #include "ImGui/imgui_impl_win32.h"
 
+#include "Entity.h"
+
 class Game 
 	: public DXCore
 {
@@ -59,5 +61,7 @@ private:
 	//Variables for Task 7, modifying offset and tint from UI
 	DirectX::XMFLOAT3 offset;
 	DirectX::XMFLOAT4 tint;
+
+	std::vector<Entity> entities;
 };
 
