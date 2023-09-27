@@ -17,7 +17,7 @@ std::shared_ptr<Mesh> Entity::GetMesh() {return meshPtr;}
 std::shared_ptr<Transform> Entity::GetTransform() {return transformPtr;}
 
 //Draw Method - Accepts the device context and a constant buffer resource
-void Entity::Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, Microsoft::WRL::ComPtr<ID3D11Buffer> constantBuffer)
+void Entity::Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, Microsoft::WRL::ComPtr<ID3D11Buffer> constantBuffer, std::shared_ptr<Camera> camera)
 {
     //Set the correct Constant Buffer Resource for the Vertex Shader stage (done in assignment 3)
 
@@ -26,6 +26,8 @@ void Entity::Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, Microsoft
     VertexShaderExternalData vsData;
     vsData.colorTint = DirectX::XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f);
     vsData.worldMatrix = this->transformPtr->GetWorldMatrix();
+    vsData.viewMatrix = camera->GetView();
+    vsData.projMatrix = camera->GetProjection();
 
     //Map / memcpy / Unmap the Constant Buffer resource (done in assignment 3)
     D3D11_MAPPED_SUBRESOURCE mappedBuffer = {};

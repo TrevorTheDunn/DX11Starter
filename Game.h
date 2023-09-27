@@ -13,6 +13,7 @@
 #include "ImGui/imgui_impl_win32.h"
 
 #include "Entity.h"
+#include "Camera.h"
 
 class Game 
 	: public DXCore
@@ -63,5 +64,9 @@ private:
 	DirectX::XMFLOAT4 tint;
 
 	std::vector<Entity> entities;
+
+	std::shared_ptr<Camera> activeCamera;
+
+	std::vector<std::shared_ptr<Camera>> cameras;
 };
 

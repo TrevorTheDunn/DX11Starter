@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "BufferStructs.h"
+#include "Camera.h"
 
 //#include <DirectXMath.h>
 
@@ -21,7 +22,7 @@ public:
 	std::shared_ptr<Mesh> GetMesh();
 	std::shared_ptr<Transform> GetTransform();
 
-	void Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, Microsoft::WRL::ComPtr<ID3D11Buffer> constantBuffer);
+	void Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, Microsoft::WRL::ComPtr<ID3D11Buffer> constantBuffer, std::shared_ptr<Camera> camera);
 
 private:
 	std::shared_ptr<Mesh> meshPtr;

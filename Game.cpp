@@ -70,6 +70,27 @@ void Game::Init()
 	//  - You'll be expanding and/or replacing these later
 	LoadShaders();
 	CreateGeometry();
+
+	//Create the cameras and sets the active one to the first camera
+	cameras.push_back(std::make_shared<Camera>(
+		0.0f, 0.0f, -5.0f,
+		5.0f,
+		1.0f,
+		XM_PIDIV4,
+		(float)this->windowWidth / this->windowHeight));
+	cameras.push_back(std::make_shared<Camera>(
+		-5.0f, 5.0f, -10.0f,
+		5.0f,
+		1.0f,
+		XM_PIDIV2,
+		(float)this->windowWidth / this->windowHeight));
+	cameras.push_back(std::make_shared<Camera>(
+		5.0f, -5.0f, -7.5f,
+		5.0f,
+		1.0f,
+		XM_PIDIV4/2.0f,
+		(float)this->windowWidth / this->windowHeight));
+	activeCamera = cameras[0];
 	
 	// Set initial graphics API state
 	//  - These settings persist until we change them
@@ -290,6 +311,9 @@ void Game::OnResize()
 {
 	// Handle base-level DX resize stuff
 	DXCore::OnResize();
+
+	activeCamera->UpdateProjectionMatrix(XM_PIDIV4,
+		(float)this->windowWidth / this->windowHeight);
 }
 
 // --------------------------------------------------------
@@ -314,7 +338,7 @@ void Game::Update(float deltaTime, float totalTime)
 	input.SetMouseCapture(io.WantCaptureMouse);
 
 	//Show the demo window
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
 
 	int value = 0;
 
@@ -331,10 +355,10 @@ void Game::Update(float deltaTime, float totalTime)
 
 	//Creation of custom ImGui Window
 	{
-		ImGui::SetNextWindowSize(ImVec2(400, 300));
+		ImGui::SetNextWindowSize(ImVec2(500, 400));
 
 		//Header Text for the Window
-		ImGui::Begin("Assignment 4 Window");
+		ImGui::Begin("Assignment 5 Window");
 
 		//Dropdown menu for app details
 		if (ImGui::TreeNode("App Details"))
@@ -407,6 +431,47 @@ void Game::Update(float deltaTime, float totalTime)
 			ImGui::TreePop();
 		}
 
+		if (ImGui::TreeNode("Cameras"))
+		{
+			if (ImGui::TreeNode("Camera 1"))
+			{
+				XMFLOAT3 c1Pos = cameras[0]->GetTransform()->GetPosition();
+				ImGui::Text("Camera 1 Position: X - %f Y - %f Z - %f", c1Pos.x, c1Pos.y, c1Pos.z);
+				ImGui::Text("Camera 1 FOV: %f", XM_PIDIV2);
+				if (ImGui::Button("Set As Current Camera"))
+				{
+					if (activeCamera == cameras[0]) return;
+					activeCamera = cameras[0];
+				}
+				ImGui::TreePop();
+			}
+			if (ImGui::TreeNode("Camera 2"))
+			{
+				XMFLOAT3 c2Pos = cameras[1]->GetTransform()->GetPosition();
+				ImGui::Text("Camera 2 Position: X - %f Y - %f Z - %f", c2Pos.x, c2Pos.y, c2Pos.z);
+				ImGui::Text("Camera 2 FOV: %f", XM_PIDIV4);
+				if (ImGui::Button("Set As Current Camera"))
+				{
+					if (activeCamera == cameras[1]) return;
+					activeCamera = cameras[1];
+				}
+				ImGui::TreePop();
+			}
+			if (ImGui::TreeNode("Camera 3"))
+			{
+				XMFLOAT3 c3Pos = cameras[2]->GetTransform()->GetPosition();
+				ImGui::Text("Camera 3 Position: X - %f Y - %f Z - %f", c3Pos.x, c3Pos.y, c3Pos.z);
+				ImGui::Text("Camera 3 FOV: %f", XM_PIDIV4/2.0f);
+				if (ImGui::Button("Set As Current Camera"))
+				{
+					if (activeCamera == cameras[2]) return;
+					activeCamera = cameras[2];
+				}
+				ImGui::TreePop();
+			}
+			ImGui::TreePop();
+		}
+
 		ImGui::End();
 
 		for (int i = 0; i < entities.size(); i++)
@@ -420,6 +485,8 @@ void Game::Update(float deltaTime, float totalTime)
 	// Example input checking: Quit if the escape key is pressed
 	if (Input::GetInstance().KeyDown(VK_ESCAPE))
 		Quit();
+
+	activeCamera->Update(deltaTime);
 
 	entities[4].GetTransform()->MoveAbsolute(-0.1f * deltaTime, 0.0f * deltaTime, 0.0f * deltaTime);
 }
@@ -448,7 +515,7 @@ void Game::Draw(float deltaTime, float totalTime)
 	//Draws each of the entities
 	for (auto& e : entities)
 	{
-		e.Draw(context, vsConstantBuffer);
+		e.Draw(context, vsConstantBuffer, activeCamera);
 	}
 
 	//ImGui
