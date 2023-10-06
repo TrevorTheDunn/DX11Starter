@@ -15,6 +15,8 @@
 #include "Entity.h"
 #include "Camera.h"
 
+#include "SimpleShader.h"
+
 class Game 
 	: public DXCore
 {
@@ -46,9 +48,12 @@ private:
 	Microsoft::WRL::ComPtr<ID3D11Buffer> indexBuffer;
 	
 	// Shaders and shader-related constructs
-	Microsoft::WRL::ComPtr<ID3D11PixelShader> pixelShader;
-	Microsoft::WRL::ComPtr<ID3D11VertexShader> vertexShader;
-	Microsoft::WRL::ComPtr<ID3D11InputLayout> inputLayout;
+	//Microsoft::WRL::ComPtr<ID3D11PixelShader> pixelShader;
+	//Microsoft::WRL::ComPtr<ID3D11VertexShader> vertexShader;
+	//Microsoft::WRL::ComPtr<ID3D11InputLayout> inputLayout;
+
+	std::shared_ptr<SimpleVertexShader> vertexShader;
+	std::shared_ptr<SimplePixelShader> pixelShader;
 
 	//Pointers for the three meshes
 	std::shared_ptr<Mesh> mesh1;
@@ -57,7 +62,7 @@ private:
 
 	std::vector<std::shared_ptr<Mesh>> meshes;
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
+	//Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
 
 	//Variables for Task 7, modifying offset and tint from UI
 	DirectX::XMFLOAT3 offset;
@@ -68,5 +73,7 @@ private:
 	std::shared_ptr<Camera> activeCamera;
 
 	std::vector<std::shared_ptr<Camera>> cameras;
+
+	std::vector<std::shared_ptr<Material>> materials;
 };
 

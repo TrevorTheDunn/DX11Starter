@@ -2,6 +2,7 @@
 #include "Vertex.h"
 #include "Input.h"
 #include "PathHelpers.h"
+#include "SimpleShader.h"
 
 // Needed for a helper function to load pre-compiled shader files
 #pragma comment(lib, "d3dcompiler.lib")
@@ -11,6 +12,8 @@
 #include "BufferStructs.h"
 
 #include "Entity.h"
+
+#include "Material.h"
 
 // For the DirectX Math library
 using namespace DirectX;
@@ -69,6 +72,11 @@ void Game::Init()
 	// geometry to draw and some simple camera matrices.
 	//  - You'll be expanding and/or replacing these later
 	LoadShaders();
+
+	materials.push_back(std::make_shared<Material>(XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), vertexShader, pixelShader));
+	materials.push_back(std::make_shared<Material>(XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), vertexShader, pixelShader));
+	materials.push_back(std::make_shared<Material>(XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f), vertexShader, pixelShader));
+
 	CreateGeometry();
 
 	//Create the cameras and sets the active one to the first camera
@@ -105,13 +113,13 @@ void Game::Init()
 		// Ensure the pipeline knows how to interpret all the numbers stored in
 		// the vertex buffer. For this course, all of your vertices will probably
 		// have the same layout, so we can just set this once at startup.
-		context->IASetInputLayout(inputLayout.Get());
+		//context->IASetInputLayout(inputLayout.Get());
 
 		// Set the active vertex and pixel shaders
 		//  - Once you start applying different shaders to different objects,
 		//    these calls will need to happen multiple times per frame
-		context->VSSetShader(vertexShader.Get(), 0, 0);
-		context->PSSetShader(pixelShader.Get(), 0, 0);
+		//context->VSSetShader(vertexShader.Get(), 0, 0);
+		//context->PSSetShader(pixelShader.Get(), 0, 0);
 	}
 
 	//Initialize ImGui itself & platform/renderer backends
@@ -130,14 +138,14 @@ void Game::Init()
 	size = (size + 15) / 16 * 16; //Will work even if the struct size changes
 
 	//Describe the constant buffer
-	D3D11_BUFFER_DESC cbDesc = {}; //Sets struct to all zeroes
-	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	cbDesc.ByteWidth = size; //Must be multiple of 16
-	cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	cbDesc.Usage = D3D11_USAGE_DYNAMIC;
+	//D3D11_BUFFER_DESC cbDesc = {}; //Sets struct to all zeroes
+	//cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	//cbDesc.ByteWidth = size; //Must be multiple of 16
+	//cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	//cbDesc.Usage = D3D11_USAGE_DYNAMIC;
 
 	//Creates the buffer
-	device->CreateBuffer(&cbDesc, 0, vsConstantBuffer.GetAddressOf());
+	//device->CreateBuffer(&cbDesc, 0, vsConstantBuffer.GetAddressOf());
 
 	offset = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	tint = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -153,6 +161,7 @@ void Game::Init()
 // --------------------------------------------------------
 void Game::LoadShaders()
 {
+	/*
 	// BLOBs (or Binary Large OBjects) for reading raw data from external files
 	// - This is a simplified way of handling big chunks of external data
 	// - Literally just a big array of bytes read from a file
@@ -210,7 +219,10 @@ void Game::LoadShaders()
 			vertexShaderBlob->GetBufferPointer(),	// Pointer to the code of a shader that uses this layout
 			vertexShaderBlob->GetBufferSize(),		// Size of the shader code that uses this layout
 			inputLayout.GetAddressOf());			// Address of the resulting ID3D11InputLayout pointer
-	}
+	}*/
+
+	vertexShader = std::make_shared<SimpleVertexShader>(device, context, FixPath(L"VertexShader.cso").c_str());
+	pixelShader = std::make_shared<SimplePixelShader>(device, context, FixPath(L"PixelShader.cso").c_str());
 }
 
 
@@ -287,11 +299,11 @@ void Game::CreateGeometry()
 		meshes.push_back(mesh2);
 		meshes.push_back(mesh3);
 
-		Entity e1 = Entity(mesh1);
-		Entity e2 = Entity(mesh1);
-		Entity e3 = Entity(mesh1);
-		Entity e4 = Entity(mesh2);
-		Entity e5 = Entity(mesh3);
+		Entity e1 = Entity(mesh1, materials[0]);
+		Entity e2 = Entity(mesh1, materials[1]);
+		Entity e3 = Entity(mesh1, materials[2]);
+		Entity e4 = Entity(mesh2, materials[0]);
+		Entity e5 = Entity(mesh3, materials[1]);
 
 		entities.push_back(e1);
 		entities.push_back(e2);
@@ -497,8 +509,8 @@ void Game::Update(float deltaTime, float totalTime)
 void Game::Draw(float deltaTime, float totalTime)
 {
 	//Creates a local variable of the struct and fills out its variables
-	VertexShaderExternalData vsData;
-	vsData.colorTint = tint;
+	//VertexShaderExternalData vsData;
+	//vsData.colorTint = tint;
 
 	// Frame START
 	// - These things should happen ONCE PER FRAME
@@ -515,7 +527,7 @@ void Game::Draw(float deltaTime, float totalTime)
 	//Draws each of the entities
 	for (auto& e : entities)
 	{
-		e.Draw(context, vsConstantBuffer, activeCamera);
+		e.Draw(context, activeCamera);
 	}
 
 	//ImGui
