@@ -424,7 +424,7 @@ void Game::Draw(float deltaTime, float totalTime)
 	//Draws each of the entities
 	for (auto& e : entities)
 	{
-		e->Draw(context, activeCamera);
+		e->Draw(context, activeCamera, deltaTime, XMFLOAT2((float)this->windowWidth, (float)this->windowHeight));
 	}
 
 	//ImGui

@@ -22,7 +22,7 @@ std::shared_ptr<Material> Entity::GetMaterial() { return material; }
 void Entity::SetMaterial(std::shared_ptr<Material> material) { this->material = material; }
 
 //Draw Method - Accepts the device context and a constant buffer resource
-void Entity::Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, std::shared_ptr<Camera> camera)
+void Entity::Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, std::shared_ptr<Camera> camera, float deltaTime, DirectX::XMFLOAT2 screenRes)
 {   
     std::shared_ptr<SimpleVertexShader> vs = material->GetVertexShader();
 
@@ -34,6 +34,8 @@ void Entity::Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, std::shar
     std::shared_ptr<SimplePixelShader> ps = material->GetPixelShader();
 
     ps->SetFloat4("colorTint", material->GetColorTint());
+    ps->SetFloat("deltaTime", deltaTime);
+    ps->SetFloat2("viewportResolution", screenRes);
     ps->CopyAllBufferData();
 
     //Set the correct Vertex and Index Buffers (done in assignment 2)
