@@ -23,38 +23,18 @@ void Entity::SetMaterial(std::shared_ptr<Material> material) { this->material = 
 
 //Draw Method - Accepts the device context and a constant buffer resource
 void Entity::Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, std::shared_ptr<Camera> camera)
-{
-    //Set the correct Constant Buffer Resource for the Vertex Shader stage (done in assignment 3)
-
-    
-    //Collect data for the current entity in a C++ struct (done in assignment 3, but now updated to hold the world matrix from the entity you're about to draw)
-    /*VertexShaderExternalData vsData;
-    vsData.colorTint = DirectX::XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f);
-    vsData.worldMatrix = this->transformPtr->GetWorldMatrix();
-    vsData.viewMatrix = camera->GetView();
-    vsData.projMatrix = camera->GetProjection();*/
-    
+{   
     std::shared_ptr<SimpleVertexShader> vs = material->GetVertexShader();
 
-    vs->SetFloat4("colorTint", material->GetColorTint());
     vs->SetMatrix4x4("world", transformPtr->GetWorldMatrix());
     vs->SetMatrix4x4("view", camera->GetView());
     vs->SetMatrix4x4("proj", camera->GetProjection());
-
-    //Map / memcpy / Unmap the Constant Buffer resource (done in assignment 3)
-    /*D3D11_MAPPED_SUBRESOURCE mappedBuffer = {};
-    context->Map(constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBuffer);
-
-    memcpy(mappedBuffer.pData, &vsData, sizeof(vsData));
-
-    context->Unmap(constantBuffer.Get(), 0);
-
-    context->VSSetConstantBuffers(
-        0,
-        1,
-        constantBuffer.GetAddressOf());*/
-
     vs->CopyAllBufferData();
+
+    std::shared_ptr<SimplePixelShader> ps = material->GetPixelShader();
+
+    ps->SetFloat4("colorTint", material->GetColorTint());
+    ps->CopyAllBufferData();
 
     //Set the correct Vertex and Index Buffers (done in assignment 2)
     UINT stride = sizeof(Vertex);

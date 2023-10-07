@@ -54,6 +54,7 @@ private:
 
 	std::shared_ptr<SimpleVertexShader> vertexShader;
 	std::shared_ptr<SimplePixelShader> pixelShader;
+	std::shared_ptr<SimplePixelShader> customPixelShader;
 
 	//Pointers for the three meshes
 	std::shared_ptr<Mesh> mesh1;
@@ -68,7 +69,7 @@ private:
 	DirectX::XMFLOAT3 offset;
 	DirectX::XMFLOAT4 tint;
 
-	std::vector<Entity> entities;
+	std::vector<std::shared_ptr<Entity>> entities;
 
 	std::shared_ptr<Camera> activeCamera;
 

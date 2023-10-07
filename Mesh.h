@@ -3,6 +3,7 @@
 #include <d3d11.h> //Used for Direct3D "stuff"
 #include <wrl/client.h> //Used for ComPtr
 #include "Vertex.h" //Used for custom Vertex struct
+#include <fstream>
 
 class Mesh
 {
@@ -17,6 +18,8 @@ public:
 	//You should copy, paste, and adjust the code from the CreateBasicGeometry()
 	//method as necessary
 	Mesh(Vertex vertices[], int numVertices, unsigned int indices[], int numIndices, Microsoft::WRL::ComPtr<ID3D11Device> device, Microsoft::WRL::ComPtr<ID3D11DeviceContext> devContext);
+	
+	Mesh(const std::wstring& fileName, Microsoft::WRL::ComPtr<ID3D11Device> device);
 
 	//Since we're using smart pointers, your destructor won't have much to do (it'll be empty)
 	//Properly cleaning up Direct3D objects is your responsibility
@@ -34,5 +37,7 @@ public:
 
 	//sets the buffers and tells DirectX to draw the correct number of indices
 	void Draw(); 
+
+	void ConstructBuffers(Vertex vertices[], int numVertices, unsigned int indices[], int numIndices, Microsoft::WRL::ComPtr<ID3D11Device> device);
 };
 
