@@ -17,6 +17,8 @@
 
 #include "SimpleShader.h"
 
+#include "Lights.h"
+
 class Game 
 	: public DXCore
 {
@@ -76,5 +78,14 @@ private:
 	std::vector<std::shared_ptr<Camera>> cameras;
 
 	std::vector<std::shared_ptr<Material>> materials;
+
+	Light directionalLight1;
+	Light directionalLight2;
+	Light directionalLight3;
+
+	Light pointLight1;
+	Light pointLight2;
+
+	std::vector<Light> lights;
 };
 

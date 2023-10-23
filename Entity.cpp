@@ -29,6 +29,7 @@ void Entity::Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, std::shar
     vs->SetMatrix4x4("world", transformPtr->GetWorldMatrix());
     vs->SetMatrix4x4("view", camera->GetView());
     vs->SetMatrix4x4("proj", camera->GetProjection());
+    vs->SetMatrix4x4("worldInvTranspose", transformPtr->GetWorldInverseTransposeMatrix());
     vs->CopyAllBufferData();
 
     std::shared_ptr<SimplePixelShader> ps = material->GetPixelShader();
@@ -36,6 +37,8 @@ void Entity::Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, std::shar
     ps->SetFloat4("colorTint", material->GetColorTint());
     ps->SetFloat("deltaTime", deltaTime);
     ps->SetFloat2("viewportResolution", screenRes);
+    ps->SetFloat("roughness", material->GetRoughness());
+    ps->SetFloat3("cameraPos", camera->GetTransform()->GetPosition());
     ps->CopyAllBufferData();
 
     //Set the correct Vertex and Index Buffers (done in assignment 2)

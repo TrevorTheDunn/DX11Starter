@@ -1,3 +1,5 @@
+#include "ShaderInclude.hlsli"
+
 cbuffer ExternalData : register(b0)
 {
 	float4 colorTint;
@@ -5,29 +7,29 @@ cbuffer ExternalData : register(b0)
 	float2 viewportResolution;
 }
 
-// Struct representing the data we expect to receive from earlier pipeline stages
-// - Should match the output of our corresponding vertex shader
-// - The name of the struct itself is unimportant
-// - The variable names don't have to match other shaders (just the semantics)
-// - Each variable must have a semantic, which defines its usage
-struct VertexToPixel
-{
-	// Data type
-	//  |
-	//  |   Name          Semantic
-	//  |    |                |
-	//  v    v                v
-	float4 screenPosition	: SV_POSITION;
-	//float4 color			: COLOR;
-	float3 normal			: NORMAL;
-	float2 uv				: TEXCOORD;
-};
-
-float3 hash23(float2 p) {
+//// Struct representing the data we expect to receive from earlier pipeline stages
+//// - Should match the output of our corresponding vertex shader
+//// - The name of the struct itself is unimportant
+//// - The variable names don't have to match other shaders (just the semantics)
+//// - Each variable must have a semantic, which defines its usage
+//struct VertexToPixel
+//{
+//	// Data type
+//	//  |
+//	//  |   Name          Semantic
+//	//  |    |                |
+//	//  v    v                v
+//	float4 screenPosition	: SV_POSITION;
+//	//float4 color			: COLOR;
+//	float3 normal			: NORMAL;
+//	float2 uv				: TEXCOORD;
+//};
+//
+  float3 hash23(float2 p) {
 	float3 p3 = frac(float3(p.xyx) * float3(0.1031, 0.1030, 0.0973));
 	p3 += dot(p3, p3.yxz + 33.33);
 	return frac((p3.xxy + p3.yzz) * p3.zyx);
-}
+  }
 
 // --------------------------------------------------------
 // The entry point (main method) for our pixel shader

@@ -1,3 +1,5 @@
+#include "ShaderInclude.hlsli"
+
 //Constant buffer
 cbuffer ExternalData : register(b0)
 {
@@ -6,6 +8,7 @@ cbuffer ExternalData : register(b0)
 	matrix world;
 	matrix view;
 	matrix proj;
+	matrix worldInvTranspose;
 }
 
 // Struct representing a single vertex worth of data
@@ -13,36 +16,36 @@ cbuffer ExternalData : register(b0)
 // - By "match", I mean the size, order and number of members
 // - The name of the struct itself is unimportant, but should be descriptive
 // - Each variable must have a semantic, which defines its usage
-struct VertexShaderInput
-{ 
-	// Data type
-	//  |
-	//  |   Name          Semantic
-	//  |    |                |
-	//  v    v                v
-	float3 localPosition	: POSITION;     // XYZ position
-	//float4 color			: COLOR;        // RGBA color
-	float3 normal			: NORMAL;
-	float2 uv				: TEXCOORD;
-};
-
-// Struct representing the data we're sending down the pipeline
-// - Should match our pixel shader's input (hence the name: Vertex to Pixel)
-// - At a minimum, we need a piece of data defined tagged as SV_POSITION
-// - The name of the struct itself is unimportant, but should be descriptive
-// - Each variable must have a semantic, which defines its usage
-struct VertexToPixel
-{
-	// Data type
-	//  |
-	//  |   Name          Semantic
-	//  |    |                |
-	//  v    v                v
-	float4 screenPosition	: SV_POSITION;	// XYZW position (System Value Position)
-	//float4 color			: COLOR;        // RGBA color
-	float3 normal			: NORMAL;
-	float2 uv				: TEXCOORD;
-};
+//struct VertexShaderInput
+//{ 
+//	// Data type
+//	//  |
+//	//  |   Name          Semantic
+//	//  |    |                |
+//	//  v    v                v
+//	float3 localPosition	: POSITION;     // XYZ position
+//	//float4 color			: COLOR;        // RGBA color
+//	float3 normal			: NORMAL;
+//	float2 uv				: TEXCOORD;
+//};
+//
+//// Struct representing the data we're sending down the pipeline
+//// - Should match our pixel shader's input (hence the name: Vertex to Pixel)
+//// - At a minimum, we need a piece of data defined tagged as SV_POSITION
+//// - The name of the struct itself is unimportant, but should be descriptive
+//// - Each variable must have a semantic, which defines its usage
+//struct VertexToPixel
+//{
+//	// Data type
+//	//  |
+//	//  |   Name          Semantic
+//	//  |    |                |
+//	//  v    v                v
+//	float4 screenPosition	: SV_POSITION;	// XYZW position (System Value Position)
+//	//float4 color			: COLOR;        // RGBA color
+//	float3 normal			: NORMAL;
+//	float2 uv				: TEXCOORD;
+//};
 
 // --------------------------------------------------------
 // The entry point (main method) for our vertex shader
@@ -75,6 +78,9 @@ VertexToPixel main( VertexShaderInput input )
 	//output.color = colorTint;
 
 	output.uv = input.uv;
+
+	output.normal = mul((float3x3)worldInvTranspose, input.normal);
+	output.worldPosition = mul(world, float4(input.localPosition, 1)).xyz;
 
 	// Whatever we return will make its way through the pipeline to the
 	// next programmable stage we're using (the pixel shader for now)

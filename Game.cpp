@@ -49,13 +49,6 @@ Game::Game(HINSTANCE hInstance)
 // --------------------------------------------------------
 Game::~Game()
 {
-	// Call delete or delete[] on any objects or arrays you've
-	// created using new or new[] within this class
-	// - Note: this is unnecessary if using smart pointers
-
-	// Call Release() on any Direct3D objects made within this class
-	// - Note: this is unnecessary for D3D objects stored in ComPtrs
-
 	//ImGui clean up
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
@@ -74,6 +67,43 @@ void Game::Init()
 	LoadShaders();
 
 	CreateGeometry();
+
+	directionalLight1 = {};
+	directionalLight1.Type = LIGHT_TYPE_DIRECTIONAL;
+	directionalLight1.Direction = XMFLOAT3(1.0f, 0.0f, 0.0f); //points right
+	directionalLight1.Color = XMFLOAT3(0.5f, 0.0f, 0.0f); //red
+	directionalLight1.Intensity = 1.0f;
+	lights.push_back(directionalLight1);
+
+	directionalLight2 = {};
+	directionalLight2.Type = LIGHT_TYPE_DIRECTIONAL;
+	directionalLight2.Direction = XMFLOAT3(-1.0f, 0.0f, 0.0f); //points left
+	directionalLight2.Color = XMFLOAT3(0.0f, 0.0f, 0.5f); //blue
+	directionalLight2.Intensity = 1.0f;
+	lights.push_back(directionalLight2);
+
+	directionalLight3 = {};
+	directionalLight3.Type = LIGHT_TYPE_DIRECTIONAL;
+	directionalLight3.Direction = XMFLOAT3(0.0f, 0.0f, 1.0f); //points forwards
+	directionalLight3.Color = XMFLOAT3(0.0f, 0.5f, 0.0f); //green
+	directionalLight3.Intensity = 1.0f;
+	lights.push_back(directionalLight3);
+
+	pointLight1 = {};
+	pointLight1.Type = LIGHT_TYPE_POINT;
+	pointLight1.Range = 10.0f;
+	pointLight1.Position = XMFLOAT3(-1.5f, -3.0f, 0.0f); 
+	pointLight1.Color = XMFLOAT3(1.0f, 1.0f, 1.0f); 
+	pointLight1.Intensity = 0.75f;
+	lights.push_back(pointLight1);
+
+	pointLight2 = {};
+	pointLight2.Type = LIGHT_TYPE_POINT;
+	pointLight2.Range = 10.0f;
+	pointLight2.Position = XMFLOAT3(1.5f, 3.0f, 0.0f); 
+	pointLight2.Color = XMFLOAT3(1.0f, 1.0f, 1.0f); 
+	pointLight2.Intensity = 0.75f;
+	lights.push_back(pointLight2);
 
 	//Create the cameras and sets the active one to the first camera
 	cameras.push_back(std::make_shared<Camera>(
@@ -97,26 +127,10 @@ void Game::Init()
 	activeCamera = cameras[0];
 	
 	// Set initial graphics API state
-	//  - These settings persist until we change them
-	//  - Some of these, like the primitive topology & input layout, probably won't change
-	//  - Others, like setting shaders, will need to be moved elsewhere later
-	{
-		// Tell the input assembler (IA) stage of the pipeline what kind of
-		// geometric primitives (points, lines or triangles) we want to draw.  
-		// Essentially: "What kind of shape should the GPU draw with our vertices?"
-		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		// Ensure the pipeline knows how to interpret all the numbers stored in
-		// the vertex buffer. For this course, all of your vertices will probably
-		// have the same layout, so we can just set this once at startup.
-		//context->IASetInputLayout(inputLayout.Get());
-
-		// Set the active vertex and pixel shaders
-		//  - Once you start applying different shaders to different objects,
-		//    these calls will need to happen multiple times per frame
-		//context->VSSetShader(vertexShader.Get(), 0, 0);
-		//context->PSSetShader(pixelShader.Get(), 0, 0);
-	}
+	// Tell the input assembler (IA) stage of the pipeline what kind of
+	// geometric primitives (points, lines or triangles) we want to draw.  
+	// Essentially: "What kind of shape should the GPU draw with our vertices?"
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//Initialize ImGui itself & platform/renderer backends
 	IMGUI_CHECKVERSION();
@@ -132,19 +146,6 @@ void Game::Init()
 	//Get size as the next multiple of 16 (rather than hardcoding a size)
 	unsigned int size = sizeof(VertexShaderExternalData);
 	size = (size + 15) / 16 * 16; //Will work even if the struct size changes
-
-	//Describe the constant buffer
-	//D3D11_BUFFER_DESC cbDesc = {}; //Sets struct to all zeroes
-	//cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	//cbDesc.ByteWidth = size; //Must be multiple of 16
-	//cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	//cbDesc.Usage = D3D11_USAGE_DYNAMIC;
-
-	//Creates the buffer
-	//device->CreateBuffer(&cbDesc, 0, vsConstantBuffer.GetAddressOf());
-
-	offset = XMFLOAT3(0.0f, 0.0f, 0.0f);
-	tint = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 // --------------------------------------------------------
@@ -176,6 +177,7 @@ void Game::CreateGeometry()
 	XMFLOAT4 blue	= XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
 	XMFLOAT4 black = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 	XMFLOAT4 white = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	XMFLOAT4 purple = XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f);
 
 	// Imports all of the different 3D meshes
 	std::shared_ptr<Mesh> sphereMesh = std::make_shared<Mesh>(FixPath(L"../../Assets/Models/sphere.obj").c_str(), device);
@@ -187,21 +189,22 @@ void Game::CreateGeometry()
 	std::shared_ptr<Mesh> quadDSMesh = std::make_shared<Mesh>(FixPath(L"../../Assets/Models/quad_double_sided.obj").c_str(), device);
 
 	// Creates the different materials and adds them to a vector of materials 
-	materials.push_back(std::make_shared<Material>(red, vertexShader, pixelShader));
-	materials.push_back(std::make_shared<Material>(green, vertexShader, pixelShader));
-	materials.push_back(std::make_shared<Material>(blue, vertexShader, pixelShader));
-	materials.push_back(std::make_shared<Material>(black, vertexShader, pixelShader));
-	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader));
+	materials.push_back(std::make_shared<Material>(red, vertexShader, pixelShader, 0.0f));
+	materials.push_back(std::make_shared<Material>(green, vertexShader, pixelShader, 0.25f));
+	materials.push_back(std::make_shared<Material>(blue, vertexShader, pixelShader, 0.5f));
+	materials.push_back(std::make_shared<Material>(black, vertexShader, pixelShader, 0.75f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 1.0f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.0f));
 
-	std::shared_ptr<Material> customPSMaterial = std::make_shared<Material>(white, vertexShader, customPixelShader);
+	//std::shared_ptr<Material> customPSMaterial = std::make_shared<Material>(white, vertexShader, customPixelShader, 1);
 
-	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[0]));
-	entities.push_back(std::make_shared<Entity>(cubeMesh, materials[1]));
-	entities.push_back(std::make_shared<Entity>(helixMesh, materials[2]));
-	entities.push_back(std::make_shared<Entity>(cylinderMesh, customPSMaterial));
-	entities.push_back(std::make_shared<Entity>(torusMesh, materials[4]));
-	entities.push_back(std::make_shared<Entity>(quadMesh, materials[3]));
-	entities.push_back(std::make_shared<Entity>(quadDSMesh, materials[1]));
+	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[5]));
+	entities.push_back(std::make_shared<Entity>(cubeMesh, materials[5]));
+	entities.push_back(std::make_shared<Entity>(helixMesh, materials[5]));
+	entities.push_back(std::make_shared<Entity>(cylinderMesh, materials[5]));
+	entities.push_back(std::make_shared<Entity>(torusMesh, materials[5]));
+	entities.push_back(std::make_shared<Entity>(quadMesh, materials[5]));
+	entities.push_back(std::make_shared<Entity>(quadDSMesh, materials[5]));
 
 	float x = -9.0f;
 
@@ -269,7 +272,7 @@ void Game::Update(float deltaTime, float totalTime)
 		ImGui::SetNextWindowSize(ImVec2(500, 400));
 
 		//Header Text for the Window
-		ImGui::Begin("Assignment 5 Window");
+		ImGui::Begin("Assignment 7 Window");
 
 		//Dropdown menu for app details
 		if (ImGui::TreeNode("App Details"))
@@ -301,41 +304,57 @@ void Game::Update(float deltaTime, float totalTime)
 		{
 			if (ImGui::TreeNode("Entity 1"))
 			{
-				ImGui::DragFloat3("Position##1", &ePos[0].x);
-				ImGui::DragFloat3("Rotation (Radians)##1", &eRot[0].x);
-				ImGui::DragFloat3("Scale##1", &eSca[0].x);
+				ImGui::DragFloat3("Position##1", &ePos[0].x, 0.1f);
+				ImGui::DragFloat3("Rotation (Radians)##1", &eRot[0].x, 0.1f);
+				ImGui::DragFloat3("Scale##1", &eSca[0].x, 0.1f);
 				ImGui::TreePop();
 			}
 
 			if (ImGui::TreeNode("Entity 2"))
 			{
-				ImGui::DragFloat3("Position##2", &ePos[1].x);
-				ImGui::DragFloat3("Rotation (Radians)##2", &eRot[1].x);
-				ImGui::DragFloat3("Scale##2", &eSca[1].x);
+				ImGui::DragFloat3("Position##2", &ePos[1].x, 0.1f);
+				ImGui::DragFloat3("Rotation (Radians)##2", &eRot[1].x, 0.1f);
+				ImGui::DragFloat3("Scale##2", &eSca[1].x, 0.1f);
 				ImGui::TreePop();
 			}
 
 			if (ImGui::TreeNode("Entity 3"))
 			{
-				ImGui::DragFloat3("Position##3", &ePos[2].x);
-				ImGui::DragFloat3("Rotation (Radians)##3", &eRot[2].x);
-				ImGui::DragFloat3("Scale##3", &eSca[2].x);
+				ImGui::DragFloat3("Position##3", &ePos[2].x, 0.1f);
+				ImGui::DragFloat3("Rotation (Radians)##3", &eRot[2].x, 0.1f);
+				ImGui::DragFloat3("Scale##3", &eSca[2].x, 0.1f);
 				ImGui::TreePop();
 			}
 
 			if (ImGui::TreeNode("Entity 4"))
 			{
-				ImGui::DragFloat3("Position##4", &ePos[3].x);
-				ImGui::DragFloat3("Rotation (Radians)##4", &eRot[3].x);
-				ImGui::DragFloat3("Scale##4", &eSca[3].x);
+				ImGui::DragFloat3("Position##4", &ePos[3].x, 0.1f);
+				ImGui::DragFloat3("Rotation (Radians)##4", &eRot[3].x, 0.1f);
+				ImGui::DragFloat3("Scale##4", &eSca[3].x, 0.1f);
 				ImGui::TreePop();
 			}
 
 			if (ImGui::TreeNode("Entity 5"))
 			{
-				ImGui::DragFloat3("Position##5", &ePos[4].x);
-				ImGui::DragFloat3("Rotation (Radians)##5", &eRot[4].x);
-				ImGui::DragFloat3("Scale##5", &eSca[4].x);
+				ImGui::DragFloat3("Position##5", &ePos[4].x, 0.1f);
+				ImGui::DragFloat3("Rotation (Radians)##5", &eRot[4].x, 0.1f);
+				ImGui::DragFloat3("Scale##5", &eSca[4].x, 0.1f);
+				ImGui::TreePop();
+			}
+
+			if (ImGui::TreeNode("Entity 6"))
+			{
+				ImGui::DragFloat3("Position##6", &ePos[4].x, 0.1f);
+				ImGui::DragFloat3("Rotation (Radians)##6", &eRot[4].x, 0.1f);
+				ImGui::DragFloat3("Scale##6", &eSca[4].x, 0.1f);
+				ImGui::TreePop();
+			}
+
+			if (ImGui::TreeNode("Entity 7"))
+			{
+				ImGui::DragFloat3("Position##7", &ePos[4].x, 0.1f);
+				ImGui::DragFloat3("Rotation (Radians)##7", &eRot[4].x, 0.1f);
+				ImGui::DragFloat3("Scale##7", &eSca[4].x, 0.1f);
 				ImGui::TreePop();
 			}
 
@@ -383,6 +402,57 @@ void Game::Update(float deltaTime, float totalTime)
 			ImGui::TreePop();
 		}
 
+		if (ImGui::TreeNode("Lights"))
+		{
+			if (ImGui::TreeNode("Directional Light 1"))
+			{
+				ImGui::DragFloat3("Direction##1", &lights[0].Direction.x, 0.1f);
+
+				XMVECTOR normDirection = XMVector3Normalize(XMLoadFloat3(&lights[0].Direction));
+				XMStoreFloat3(&lights[0].Direction, normDirection);
+				ImGui::ColorEdit3("Color##1", &lights[0].Color.x, 0.1f);
+				ImGui::DragFloat("Intensity##1", &lights[0].Intensity, 0.01f, 0.0f);
+				ImGui::TreePop();
+			}
+			if (ImGui::TreeNode("Directional Light 2"))
+			{
+				ImGui::DragFloat3("Direction##2", &lights[1].Direction.x, 0.1f);
+
+				XMVECTOR normDirection = XMVector3Normalize(XMLoadFloat3(&lights[1].Direction));
+				XMStoreFloat3(&lights[1].Direction, normDirection);
+				ImGui::ColorEdit3("Color##2", &lights[1].Color.x, 0.1f);
+				ImGui::DragFloat("Intensity##2", &lights[1].Intensity, 0.01f, 0.0f);
+				ImGui::TreePop();
+			}
+			if (ImGui::TreeNode("Directional Light 3"))
+			{
+				ImGui::DragFloat3("Direction##3", &lights[2].Direction.x, 0.1f);
+
+				XMVECTOR normDirection = XMVector3Normalize(XMLoadFloat3(&lights[2].Direction));
+				XMStoreFloat3(&lights[2].Direction, normDirection);
+				ImGui::ColorEdit3("Color##3", &lights[2].Color.x, 0.1f);
+				ImGui::DragFloat("Intensity##3", &lights[2].Intensity, 0.01f, 0.0f);
+				ImGui::TreePop();
+			}
+			if (ImGui::TreeNode("Point Light 1"))
+			{
+				ImGui::DragFloat3("Position##1", &lights[3].Position.x, 0.1f);
+				ImGui::ColorEdit3("Color##4", &lights[3].Color.x, 0.1f);
+				ImGui::DragFloat("Intensity##4", &lights[3].Intensity, 0.01f, 0.0f);
+				ImGui::DragFloat("Range##1", &lights[3].Range, 0.1f, 0.0f);
+				ImGui::TreePop();
+			}
+			if (ImGui::TreeNode("Point Light 2"))
+			{
+				ImGui::DragFloat3("Position##2", &lights[4].Position.x, 0.1f);
+				ImGui::ColorEdit3("Color##5", &lights[4].Color.x, 0.1f);
+				ImGui::DragFloat("Intensity##5", &lights[4].Intensity, 0.01f, 0.0f);
+				ImGui::DragFloat("Range##1", &lights[4].Range, 0.1f, 0.0f);
+				ImGui::TreePop();
+			}
+			ImGui::TreePop();
+		}
+
 		ImGui::End();
 
 		for (int i = 0; i < entities.size(); i++)
@@ -405,10 +475,6 @@ void Game::Update(float deltaTime, float totalTime)
 // --------------------------------------------------------
 void Game::Draw(float deltaTime, float totalTime)
 {
-	//Creates a local variable of the struct and fills out its variables
-	//VertexShaderExternalData vsData;
-	//vsData.colorTint = tint;
-
 	// Frame START
 	// - These things should happen ONCE PER FRAME
 	// - At the beginning of Game::Draw() before drawing *anything*
@@ -421,9 +487,12 @@ void Game::Draw(float deltaTime, float totalTime)
 		context->ClearDepthStencilView(depthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 	}
 
+	XMFLOAT3 ambientColor = XMFLOAT3(0.1f, 0.1f, 0.25f);
+
 	//Draws each of the entities
 	for (auto& e : entities)
 	{
+		e->GetMaterial()->GetPixelShader()->SetData("lights", &lights[0], sizeof(Light) * (int)lights.size());
 		e->Draw(context, activeCamera, deltaTime, XMFLOAT2((float)this->windowWidth, (float)this->windowHeight));
 	}
 
