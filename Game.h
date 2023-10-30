@@ -68,8 +68,8 @@ private:
 	//Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
 
 	//Variables for Task 7, modifying offset and tint from UI
-	DirectX::XMFLOAT3 offset;
-	DirectX::XMFLOAT4 tint;
+	//DirectX::XMFLOAT3 offset;
+	//DirectX::XMFLOAT4 tint;
 
 	std::vector<std::shared_ptr<Entity>> entities;
 
@@ -79,13 +79,23 @@ private:
 
 	std::vector<std::shared_ptr<Material>> materials;
 
-	Light directionalLight1;
-	Light directionalLight2;
-	Light directionalLight3;
+	//Light directionalLight1;
+	//Light directionalLight2;
+	//Light directionalLight3;
 
-	Light pointLight1;
-	Light pointLight2;
+	//Light pointLight1;
+	//Light pointLight2;
 
 	std::vector<Light> lights;
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvTile;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvTileSpec;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBroken;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBrokenSpec;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvMetal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvMetalSpec;
+
+	//D3D11_SAMPLER_DESC samplerDesc;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerState;
 };
 

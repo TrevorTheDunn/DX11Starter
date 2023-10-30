@@ -273,3 +273,13 @@ void Mesh::ConstructBuffers(Vertex vertices[], int numVertices, unsigned int ind
 
 	device->CreateBuffer(&ibd, &initialIndexData, indexBuffer.GetAddressOf());
 }
+
+void Mesh::SetBuffersAndDraw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context)
+{
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+	context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
+	context->IASetIndexBuffer(indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+
+	context->DrawIndexed(this->GetIndexCount(), 0, 0);
+}

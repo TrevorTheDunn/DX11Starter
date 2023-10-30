@@ -1,5 +1,9 @@
 #include "ShaderInclude.hlsli"
 
+Texture2D SurfaceTexture	:	register(t0);	//"t" registers for textures
+Texture2D SpecularTexture	:	register(t1);
+SamplerState BasicSampler	:	register(s0);	//"s" registers for samplers
+
 cbuffer ExternalData : register(b0)
 {
 	float4 colorTint;
@@ -69,18 +73,26 @@ float4 main(VertexToPixel input) : SV_TARGET
 
 	float3 finalColor = (light * directionalLight1.Intensity * directionalLight1.Color) + (ambient * colorTint);*/
 
-	float3 finalColor = ambient * colorTint;
+	float3 surfaceColor = SurfaceTexture.Sample(BasicSampler, input.uv).rgb;
+
+	float specScale = SpecularTexture.Sample(BasicSampler, input.uv).r;
+
+	//return float4(surfaceColor, 1.0f);
+
+	surfaceColor *= colorTint;
+
+	float3 finalColor = ambient * surfaceColor;
 
 	for (int i = 0; i < 5; i++)
 	{
 		switch (lights[i].Type)
 		{
 			case LIGHT_TYPE_DIRECTIONAL:
-				finalColor += DirLight(lights[i], input.normal, cameraPos, input.worldPosition, colorTint, roughness);
+				finalColor += DirLight(lights[i], input.normal, cameraPos, input.worldPosition, surfaceColor, roughness, specScale);
 				break;
 
 			case LIGHT_TYPE_POINT:
-				finalColor += PointLight(lights[i], input.normal, cameraPos, input.worldPosition, colorTint, roughness);
+				finalColor += PointLight(lights[i], input.normal, cameraPos, input.worldPosition, surfaceColor, roughness, specScale);
 				break;
 		}
 	}

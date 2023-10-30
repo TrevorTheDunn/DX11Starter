@@ -15,6 +15,8 @@
 
 #include "Material.h"
 
+#include <WICTextureLoader.h>
+
 // For the DirectX Math library
 using namespace DirectX;
 
@@ -68,41 +70,41 @@ void Game::Init()
 
 	CreateGeometry();
 
-	directionalLight1 = {};
+	Light directionalLight1 = {};
 	directionalLight1.Type = LIGHT_TYPE_DIRECTIONAL;
 	directionalLight1.Direction = XMFLOAT3(1.0f, 0.0f, 0.0f); //points right
-	directionalLight1.Color = XMFLOAT3(0.5f, 0.0f, 0.0f); //red
-	directionalLight1.Intensity = 1.0f;
+	directionalLight1.Color = XMFLOAT3(1.0f, 1.0f, 1.0f); //red
+	directionalLight1.Intensity = 0.5f;
 	lights.push_back(directionalLight1);
 
-	directionalLight2 = {};
+	Light directionalLight2 = {};
 	directionalLight2.Type = LIGHT_TYPE_DIRECTIONAL;
 	directionalLight2.Direction = XMFLOAT3(-1.0f, 0.0f, 0.0f); //points left
-	directionalLight2.Color = XMFLOAT3(0.0f, 0.0f, 0.5f); //blue
-	directionalLight2.Intensity = 1.0f;
+	directionalLight2.Color = XMFLOAT3(1.0f, 1.0f, 1.0f); //blue
+	directionalLight2.Intensity = 0.5f;
 	lights.push_back(directionalLight2);
 
-	directionalLight3 = {};
+	Light directionalLight3 = {};
 	directionalLight3.Type = LIGHT_TYPE_DIRECTIONAL;
 	directionalLight3.Direction = XMFLOAT3(0.0f, 0.0f, 1.0f); //points forwards
-	directionalLight3.Color = XMFLOAT3(0.0f, 0.5f, 0.0f); //green
-	directionalLight3.Intensity = 1.0f;
+	directionalLight3.Color = XMFLOAT3(1.0f, 1.0f, 1.0f); //green
+	directionalLight3.Intensity = 0.5f;
 	lights.push_back(directionalLight3);
 
-	pointLight1 = {};
+	Light pointLight1 = {};
 	pointLight1.Type = LIGHT_TYPE_POINT;
 	pointLight1.Range = 10.0f;
 	pointLight1.Position = XMFLOAT3(-1.5f, -3.0f, 0.0f); 
 	pointLight1.Color = XMFLOAT3(1.0f, 1.0f, 1.0f); 
-	pointLight1.Intensity = 0.75f;
+	pointLight1.Intensity = 0.5f;
 	lights.push_back(pointLight1);
 
-	pointLight2 = {};
+	Light pointLight2 = {};
 	pointLight2.Type = LIGHT_TYPE_POINT;
 	pointLight2.Range = 10.0f;
 	pointLight2.Position = XMFLOAT3(1.5f, 3.0f, 0.0f); 
 	pointLight2.Color = XMFLOAT3(1.0f, 1.0f, 1.0f); 
-	pointLight2.Intensity = 0.75f;
+	pointLight2.Intensity = 0.5f;
 	lights.push_back(pointLight2);
 
 	//Create the cameras and sets the active one to the first camera
@@ -188,23 +190,53 @@ void Game::CreateGeometry()
 	std::shared_ptr<Mesh> quadMesh = std::make_shared<Mesh>(FixPath(L"../../Assets/Models/quad.obj").c_str(), device);
 	std::shared_ptr<Mesh> quadDSMesh = std::make_shared<Mesh>(FixPath(L"../../Assets/Models/quad_double_sided.obj").c_str(), device);
 
+	//Loads Textures
+	//HRESULT result1 = CreateWICTextureFromFile(*(device.GetAddressOf()), *(context.GetAddressOf()), FixPath(L"../../Assets/Textures/tiles.png").c_str(), nullptr, srvPtr1.GetAddressOf());
+	//HRESULT result2 = CreateWICTextureFromFile(*(device.GetAddressOf()), *(context.GetAddressOf()), FixPath(L"../../Assets/Textures/brokentiles.png").c_str(), nullptr, srvPtr2.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/tiles.png").c_str(), 0, srvTile.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/brokentiles.png").c_str(), 0, srvBroken.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/rustymetal.png").c_str(), 0, srvMetal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/tiles_specular.png").c_str(), 0, srvTileSpec.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/brokentiles_specular.png").c_str(), 0, srvBrokenSpec.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/rustymetal_specular.png").c_str(), 0, srvMetalSpec.GetAddressOf());
+
+	D3D11_SAMPLER_DESC samplerDesc = {};
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.Filter = D3D11_FILTER_ANISOTROPIC;
+	samplerDesc.MaxAnisotropy = 16;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+	device->CreateSamplerState(&samplerDesc, samplerState.GetAddressOf());
+
 	// Creates the different materials and adds them to a vector of materials 
 	materials.push_back(std::make_shared<Material>(red, vertexShader, pixelShader, 0.0f));
 	materials.push_back(std::make_shared<Material>(green, vertexShader, pixelShader, 0.25f));
 	materials.push_back(std::make_shared<Material>(blue, vertexShader, pixelShader, 0.5f));
-	materials.push_back(std::make_shared<Material>(black, vertexShader, pixelShader, 0.75f));
-	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 1.0f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.0f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.0f));
 	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.0f));
 
 	//std::shared_ptr<Material> customPSMaterial = std::make_shared<Material>(white, vertexShader, customPixelShader, 1);
 
-	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[5]));
-	entities.push_back(std::make_shared<Entity>(cubeMesh, materials[5]));
+	materials[5]->AddTextureSRV("SurfaceTexture", srvTile);
+	materials[5]->AddTextureSRV("SpecularTexture", srvTileSpec);
+	materials[5]->AddSampler("BasicSampler", samplerState);
+	materials[4]->AddTextureSRV("SurfaceTexture", srvBroken);
+	materials[4]->AddTextureSRV("SpecularTexture", srvBrokenSpec);
+	materials[4]->AddSampler("BasicSampler", samplerState);
+	materials[3]->AddTextureSRV("SurfaceTexture", srvMetal);
+	materials[3]->AddTextureSRV("SpecularTexture", srvMetalSpec);
+	materials[3]->AddSampler("BasicSampler", samplerState);
+
+	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[4]));
+	entities.push_back(std::make_shared<Entity>(cubeMesh, materials[3]));
 	entities.push_back(std::make_shared<Entity>(helixMesh, materials[5]));
-	entities.push_back(std::make_shared<Entity>(cylinderMesh, materials[5]));
+	entities.push_back(std::make_shared<Entity>(cylinderMesh, materials[4]));
 	entities.push_back(std::make_shared<Entity>(torusMesh, materials[5]));
-	entities.push_back(std::make_shared<Entity>(quadMesh, materials[5]));
-	entities.push_back(std::make_shared<Entity>(quadDSMesh, materials[5]));
+	entities.push_back(std::make_shared<Entity>(quadMesh, materials[4]));
+	entities.push_back(std::make_shared<Entity>(quadDSMesh, materials[3]));
 
 	float x = -9.0f;
 
@@ -289,7 +321,7 @@ void Game::Update(float deltaTime, float totalTime)
 		//TASK 7 - OFFSET AND COLOR CHANGE
 		//You'll probably need variables for these pieces of data, as they need to persist across frames
 
-		if (ImGui::TreeNode("Meshes"))
+		/*if (ImGui::TreeNode("Meshes"))
 		{
 			//OFFSET - To edit a 3 component vector with ImGui, use the DragFloat3() function
 			ImGui::DragFloat3("Offset", &offset.x);
@@ -298,7 +330,7 @@ void Game::Update(float deltaTime, float totalTime)
 			ImGui::ColorEdit4("4 component RGBA Color Editor", &tint.x);
 
 			ImGui::TreePop();
-		}
+		}*/
 
 		if (ImGui::TreeNode("Scene Entities"))
 		{
@@ -494,6 +526,7 @@ void Game::Draw(float deltaTime, float totalTime)
 	{
 		e->GetMaterial()->GetPixelShader()->SetData("lights", &lights[0], sizeof(Light) * (int)lights.size());
 		e->Draw(context, activeCamera, deltaTime, XMFLOAT2((float)this->windowWidth, (float)this->windowHeight));
+		//e->Draw(context, activeCamera, srvPtr1, samplerState);
 	}
 
 	//ImGui

@@ -39,5 +39,7 @@ public:
 	void Draw(); 
 
 	void ConstructBuffers(Vertex vertices[], int numVertices, unsigned int indices[], int numIndices, Microsoft::WRL::ComPtr<ID3D11Device> device);
+
+	void SetBuffersAndDraw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context);
 };
 

@@ -62,16 +62,18 @@ float SpecRefl(float3 normal, float3 dirToLight, float3 toCam, float roughness)
 
 	float specExponent = (1.0f - roughness) * MAX_SPECULAR_EXPONENT;
 
-	return pow(saturate(dot(r, v)), specExponent);
+	//return pow(saturate(dot(r, v)), specExponent);
+
+	return roughness == 1 ? 0.0f : pow(max(dot(v, r), 0), (1 - roughness) * MAX_SPECULAR_EXPONENT);
 }
 
-float3 DirLight(Light directLight, float3 normal, float3 cameraPos, float3 worldPos, float4 surfaceColor, float roughness)
+float3 DirLight(Light directLight, float3 normal, float3 cameraPos, float3 worldPos, float3 surfaceColor, float roughness, float specScale)
 {
 	float3 dirToLight = normalize(-directLight.Direction);
 	float3 toCam = normalize(cameraPos - worldPos);
 
 	float3 diffuse = CalcDiffuse(normal, dirToLight);
-	float3 spec = SpecRefl(normal, directLight.Direction, toCam, roughness);
+	float3 spec = SpecRefl(normal, directLight.Direction, toCam, roughness) * specScale;
 
 	return (diffuse * surfaceColor + spec) * directLight.Intensity * directLight.Color;
 }
@@ -83,13 +85,13 @@ float Attenuate(Light pointLight, float3 worldPos)
 	return att * att;
 }
 
-float3 PointLight(Light pointLight, float3 normal, float3 cameraPos, float3 worldPos, float4 surfaceColor, float roughness)
+float3 PointLight(Light pointLight, float3 normal, float3 cameraPos, float3 worldPos, float3 surfaceColor, float roughness, float specScale)
 {
 	float3 dirToLight = normalize(pointLight.Position - worldPos);
 	float3 toCam = normalize(cameraPos - worldPos);
 
 	float3 diffuse = CalcDiffuse(normal, dirToLight);
-	float spec = SpecRefl(normal, dirToLight, toCam, roughness);
+	float spec = SpecRefl(normal, dirToLight, toCam, roughness) * specScale;
 	float att = Attenuate(pointLight, worldPos);
 
 	return (diffuse * surfaceColor + spec) * pointLight.Intensity * pointLight.Color * att;

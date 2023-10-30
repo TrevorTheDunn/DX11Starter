@@ -1,4 +1,6 @@
 #include "Material.h"
+#include "Transform.h"
+#include "Camera.h"
 
 Material::Material(DirectX::XMFLOAT4 colorTint, 
     std::shared_ptr<SimpleVertexShader> vertexShader, 
@@ -28,3 +30,27 @@ void Material::SetVertexShader(std::shared_ptr<SimpleVertexShader> vertexShader)
 void Material::SetPixelShader(std::shared_ptr<SimplePixelShader> pixelShader) { this->pixelShader = pixelShader; }
 
 void Material::SetRoughness(float roughness) { this->roughness = roughness; }
+
+void Material::AddTextureSRV(std::string shaderName, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv) { textureSRVs.insert({ shaderName, srv }); }
+
+void Material::AddSampler(std::string shaderName, Microsoft::WRL::ComPtr<ID3D11SamplerState> sampler) { samplers.insert({ shaderName, sampler }); }
+
+void Material::SetResources(std::shared_ptr<Transform> transform, std::shared_ptr<Camera> camera)
+{
+    pixelShader->SetShader();
+    vertexShader->SetShader();
+
+    vertexShader->SetMatrix4x4("world", transform->GetWorldMatrix());
+    vertexShader->SetMatrix4x4("view", camera->GetView());
+    vertexShader->SetMatrix4x4("proj", camera->GetProjection());
+    vertexShader->SetMatrix4x4("worldInvTranspose", transform->GetWorldInverseTransposeMatrix());
+    vertexShader->CopyAllBufferData();
+
+    pixelShader->SetFloat4("colorTint", colorTint);
+    pixelShader->SetFloat("roughness", roughness);
+    pixelShader->SetFloat3("cameraPos", camera->GetTransform()->GetPosition());
+    pixelShader->CopyAllBufferData();
+
+    for (auto& t : textureSRVs) { pixelShader->SetShaderResourceView(t.first.c_str(), t.second.Get()); }
+    for (auto& s : samplers) { pixelShader->SetSamplerState(s.first.c_str(), s.second.Get()); }
+}
