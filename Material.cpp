@@ -2,7 +2,7 @@
 #include "Transform.h"
 #include "Camera.h"
 
-Material::Material(DirectX::XMFLOAT4 colorTint, 
+Material::Material(DirectX::XMFLOAT3 colorTint, 
     std::shared_ptr<SimpleVertexShader> vertexShader, 
     std::shared_ptr<SimplePixelShader> pixelShader,
     float roughness) :
@@ -15,7 +15,7 @@ Material::Material(DirectX::XMFLOAT4 colorTint,
 
 Material::~Material() { }
 
-DirectX::XMFLOAT4 Material::GetColorTint() { return colorTint; }
+DirectX::XMFLOAT3 Material::GetColorTint() { return colorTint; }
 
 std::shared_ptr<SimpleVertexShader> Material::GetVertexShader() { return vertexShader; }
 
@@ -23,7 +23,7 @@ std::shared_ptr<SimplePixelShader> Material::GetPixelShader() { return pixelShad
 
 float Material::GetRoughness() { return roughness; }
 
-void Material::SetColorTint(DirectX::XMFLOAT4 colorTint) { this->colorTint = colorTint; }
+void Material::SetColorTint(DirectX::XMFLOAT3 colorTint) { this->colorTint = colorTint; }
 
 void Material::SetVertexShader(std::shared_ptr<SimpleVertexShader> vertexShader) { this->vertexShader = vertexShader; }
 
@@ -46,7 +46,7 @@ void Material::SetResources(std::shared_ptr<Transform> transform, std::shared_pt
     vertexShader->SetMatrix4x4("worldInvTranspose", transform->GetWorldInverseTransposeMatrix());
     vertexShader->CopyAllBufferData();
 
-    pixelShader->SetFloat4("colorTint", colorTint);
+    pixelShader->SetFloat3("colorTint", colorTint);
     pixelShader->SetFloat("roughness", roughness);
     pixelShader->SetFloat3("cameraPos", camera->GetTransform()->GetPosition());
     pixelShader->CopyAllBufferData();

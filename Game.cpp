@@ -35,7 +35,12 @@ Game::Game(HINSTANCE hInstance)
 		1280,				// Width of the window's client area
 		720,				// Height of the window's client area
 		false,				// Sync the framerate to the monitor refresh? (lock framerate)
-		true)				// Show extra stats (fps) in title bar?
+		true),				// Show extra stats (fps) in title bar?
+	shadowMapResolution(1024),
+	lightViewMatrix(),
+	lightProjectionMatrix(),
+	lightProjectionSize(15.0f),
+	blurAmt(5)
 {
 #if defined(DEBUG) || defined(_DEBUG)
 	// Do we want a console window?  Probably only in debug mode
@@ -72,7 +77,7 @@ void Game::Init()
 
 	Light directionalLight1 = {};
 	directionalLight1.Type = LIGHT_TYPE_DIRECTIONAL;
-	directionalLight1.Direction = XMFLOAT3(1.0f, 0.0f, 0.0f); //points right
+	directionalLight1.Direction = XMFLOAT3(1.0f, -1.0f, 0.0f); //points right
 	directionalLight1.Color = XMFLOAT3(1.0f, 1.0f, 1.0f); //red
 	directionalLight1.Intensity = 0.5f;
 	lights.push_back(directionalLight1);
@@ -148,6 +153,9 @@ void Game::Init()
 	//Get size as the next multiple of 16 (rather than hardcoding a size)
 	unsigned int size = sizeof(VertexShaderExternalData);
 	size = (size + 15) / 16 * 16; //Will work even if the struct size changes
+
+	loadShadows();
+	ppSetup();
 }
 
 // --------------------------------------------------------
@@ -163,6 +171,8 @@ void Game::LoadShaders()
 	vertexShader = std::make_shared<SimpleVertexShader>(device, context, FixPath(L"VertexShader.cso").c_str());
 	pixelShader = std::make_shared<SimplePixelShader>(device, context, FixPath(L"PixelShader.cso").c_str());
 	customPixelShader = std::make_shared<SimplePixelShader>(device, context, FixPath(L"CustomPS.cso").c_str());
+	ppVS = std::make_shared<SimpleVertexShader>(device, context, FixPath(L"FullscreenVS.cso").c_str());
+	ppPS = std::make_shared<SimplePixelShader>(device, context, FixPath(L"BoxBlurPPPS.cso").c_str());
 }
 
 
@@ -174,12 +184,12 @@ void Game::CreateGeometry()
 {
 	// Create some temporary variables to represent colors
 	// - Not necessary, just makes things more readable
-	XMFLOAT4 red	= XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
-	XMFLOAT4 green	= XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
-	XMFLOAT4 blue	= XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
-	XMFLOAT4 black = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
-	XMFLOAT4 white = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	XMFLOAT4 purple = XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f);
+	XMFLOAT3 red	= XMFLOAT3(1.0f, 0.0f, 0.0f);
+	XMFLOAT3 green	= XMFLOAT3(0.0f, 1.0f, 0.0f);
+	XMFLOAT3 blue	= XMFLOAT3(0.0f, 0.0f, 1.0f);
+	XMFLOAT3 black = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	XMFLOAT3 white = XMFLOAT3(1.0f, 1.0f, 1.0f);
+	XMFLOAT3 purple = XMFLOAT3(1.0f, 0.0f, 1.0f);
 
 	// Imports all of the different 3D meshes
 	std::shared_ptr<Mesh> sphereMesh = std::make_shared<Mesh>(FixPath(L"../../Assets/Models/sphere.obj").c_str(), device);
@@ -190,15 +200,78 @@ void Game::CreateGeometry()
 	std::shared_ptr<Mesh> quadMesh = std::make_shared<Mesh>(FixPath(L"../../Assets/Models/quad.obj").c_str(), device);
 	std::shared_ptr<Mesh> quadDSMesh = std::make_shared<Mesh>(FixPath(L"../../Assets/Models/quad_double_sided.obj").c_str(), device);
 
-	//Loads Textures
-	//HRESULT result1 = CreateWICTextureFromFile(*(device.GetAddressOf()), *(context.GetAddressOf()), FixPath(L"../../Assets/Textures/tiles.png").c_str(), nullptr, srvPtr1.GetAddressOf());
-	//HRESULT result2 = CreateWICTextureFromFile(*(device.GetAddressOf()), *(context.GetAddressOf()), FixPath(L"../../Assets/Textures/brokentiles.png").c_str(), nullptr, srvPtr2.GetAddressOf());
-	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/tiles.png").c_str(), 0, srvTile.GetAddressOf());
-	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/brokentiles.png").c_str(), 0, srvBroken.GetAddressOf());
-	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/rustymetal.png").c_str(), 0, srvMetal.GetAddressOf());
-	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/tiles_specular.png").c_str(), 0, srvTileSpec.GetAddressOf());
-	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/brokentiles_specular.png").c_str(), 0, srvBrokenSpec.GetAddressOf());
-	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/rustymetal_specular.png").c_str(), 0, srvMetalSpec.GetAddressOf());
+	loadTextures(cubeMesh);
+
+	// Creates the different materials and adds them to a vector of materials 
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.0f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.17f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.34f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.51f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.68f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.85f));
+	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 1.0f));
+
+	//std::shared_ptr<Material> customPSMaterial = std::make_shared<Material>(white, vertexShader, customPixelShader, 1);
+
+	loadMaterials();
+
+	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[0]));
+	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[1]));
+	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[2]));
+	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[3]));
+	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[4]));
+	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[5]));
+	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[6]));
+
+	float x = -9.0f;
+
+	for (int i = 0; i < entities.size(); i++)
+	{
+		entities[i]->GetTransform()->MoveAbsolute(x, 0, 0);
+		x += 3.0f;
+	}
+
+	entities.push_back(std::make_shared<Entity>(quadDSMesh, materials[6]));
+	entities[7]->GetTransform()->MoveAbsolute(0, -1.5f, 0);
+	entities[7]->GetTransform()->SetScale(10.0f, 10.0f, 10.0f);
+}
+
+void Game::loadTextures(std::shared_ptr<Mesh> cubeMesh)
+{
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/bronze_albedo.png").c_str(), 0, srvBronzeAlbedo.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/bronze_metal.png").c_str(), 0, srvBronzeMetal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/bronze_normals.png").c_str(), 0, srvBronzeNormal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/bronze_roughness.png").c_str(), 0, srvBronzeRough.GetAddressOf());
+
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/cobblestone_albedo.png").c_str(), 0, srvCobbleAlbedo.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/cobblestone_metal.png").c_str(), 0, srvCobbleMetal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/cobblestone_normals.png").c_str(), 0, srvCobbleNormal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/cobblestone_roughness.png").c_str(), 0, srvCobbleRough.GetAddressOf());
+
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/floor_albedo.png").c_str(), 0, srvFloorAlbedo.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/floor_metal.png").c_str(), 0, srvFloorMetal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/floor_normals.png").c_str(), 0, srvFloorNormal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/floor_roughness.png").c_str(), 0, srvFloorRough.GetAddressOf());
+
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/paint_albedo.png").c_str(), 0, srvPaintAlbedo.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/paint_metal.png").c_str(), 0, srvPaintMetal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/paint_normals.png").c_str(), 0, srvPaintNormal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/paint_roughness.png").c_str(), 0, srvPaintRough.GetAddressOf());
+
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/rough_albedo.png").c_str(), 0, srvRoughAlbedo.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/rough_metal.png").c_str(), 0, srvRoughMetal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/rough_normals.png").c_str(), 0, srvRoughNormal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/rough_roughness.png").c_str(), 0, srvRoughRough.GetAddressOf());
+
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/scratched_albedo.png").c_str(), 0, srvScratchAlbedo.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/scratched_metal.png").c_str(), 0, srvScratchMetal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/scratched_normals.png").c_str(), 0, srvScratchNormal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/scratched_roughness.png").c_str(), 0, srvScratchRough.GetAddressOf());
+
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/wood_albedo.png").c_str(), 0, srvWoodAlbedo.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/wood_metal.png").c_str(), 0, srvWoodMetal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/wood_normals.png").c_str(), 0, srvWoodNormal.GetAddressOf());
+	CreateWICTextureFromFile(device.Get(), context.Get(), FixPath(L"../../Assets/Textures/wood_roughness.png").c_str(), 0, srvWoodRough.GetAddressOf());
 
 	D3D11_SAMPLER_DESC samplerDesc = {};
 	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
@@ -210,41 +283,140 @@ void Game::CreateGeometry()
 
 	device->CreateSamplerState(&samplerDesc, samplerState.GetAddressOf());
 
-	// Creates the different materials and adds them to a vector of materials 
-	materials.push_back(std::make_shared<Material>(red, vertexShader, pixelShader, 0.0f));
-	materials.push_back(std::make_shared<Material>(green, vertexShader, pixelShader, 0.25f));
-	materials.push_back(std::make_shared<Material>(blue, vertexShader, pixelShader, 0.5f));
-	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.0f));
-	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.0f));
-	materials.push_back(std::make_shared<Material>(white, vertexShader, pixelShader, 0.0f));
+	std::vector<const wchar_t*> skySidePaths;
+	skySidePaths.push_back(FixPath(L"../../Assets/Textures/right.png").c_str());
+	skySidePaths.push_back(FixPath(L"../../Assets/Textures/left.png").c_str());
+	skySidePaths.push_back(FixPath(L"../../Assets/Textures/up.png").c_str());
+	skySidePaths.push_back(FixPath(L"../../Assets/Textures/down.png").c_str());
+	skySidePaths.push_back(FixPath(L"../../Assets/Textures/front.png").c_str());
+	skySidePaths.push_back(FixPath(L"../../Assets/Textures/back.png").c_str());
 
-	//std::shared_ptr<Material> customPSMaterial = std::make_shared<Material>(white, vertexShader, customPixelShader, 1);
+	sky = std::make_shared<Sky>(*cubeMesh, samplerState, device, context,
+		FixPath(L"../../Assets/Textures/Skybox/right.png").c_str(), FixPath(L"../../Assets/Textures/Skybox/left.png").c_str(),
+		FixPath(L"../../Assets/Textures/Skybox/up.png").c_str(), FixPath(L"../../Assets/Textures/Skybox/down.png").c_str(),
+		FixPath(L"../../Assets/Textures/Skybox/front.png").c_str(), FixPath(L"../../Assets/Textures/Skybox/back.png").c_str(),
+		std::make_shared<SimpleVertexShader>(device, context, FixPath(L"SkyVertexShader.cso").c_str()),
+		std::make_shared<SimplePixelShader>(device, context, FixPath(L"SkyPixelShader.cso").c_str()));
+}
 
-	materials[5]->AddTextureSRV("SurfaceTexture", srvTile);
-	materials[5]->AddTextureSRV("SpecularTexture", srvTileSpec);
-	materials[5]->AddSampler("BasicSampler", samplerState);
-	materials[4]->AddTextureSRV("SurfaceTexture", srvBroken);
-	materials[4]->AddTextureSRV("SpecularTexture", srvBrokenSpec);
-	materials[4]->AddSampler("BasicSampler", samplerState);
-	materials[3]->AddTextureSRV("SurfaceTexture", srvMetal);
-	materials[3]->AddTextureSRV("SpecularTexture", srvMetalSpec);
+void Game::loadMaterials()
+{
+	materials[0]->AddTextureSRV("Albedo", srvBronzeAlbedo);
+	materials[0]->AddTextureSRV("NormalMap", srvBronzeNormal);
+	materials[0]->AddTextureSRV("RoughnessMap", srvBronzeRough);
+	materials[0]->AddTextureSRV("MetalnessMap", srvBronzeMetal);
+	materials[0]->AddSampler("BasicSampler", samplerState);
+
+	materials[1]->AddTextureSRV("Albedo", srvCobbleAlbedo);
+	materials[1]->AddTextureSRV("NormalMap", srvCobbleNormal);
+	materials[1]->AddTextureSRV("RoughnessMap", srvCobbleRough);
+	materials[1]->AddTextureSRV("MetalnessMap", srvCobbleMetal);
+	materials[1]->AddSampler("BasicSampler", samplerState);
+
+	materials[2]->AddTextureSRV("Albedo", srvFloorAlbedo);
+	materials[2]->AddTextureSRV("NormalMap", srvFloorNormal);
+	materials[2]->AddTextureSRV("RoughnessMap", srvFloorRough);
+	materials[2]->AddTextureSRV("MetalnessMap", srvFloorMetal);
+	materials[2]->AddSampler("BasicSampler", samplerState);
+
+	materials[3]->AddTextureSRV("Albedo", srvPaintAlbedo);
+	materials[3]->AddTextureSRV("NormalMap", srvPaintNormal);
+	materials[3]->AddTextureSRV("RoughnessMap", srvPaintRough);
+	materials[3]->AddTextureSRV("MetalnessMap", srvPaintMetal);
 	materials[3]->AddSampler("BasicSampler", samplerState);
 
-	entities.push_back(std::make_shared<Entity>(sphereMesh, materials[4]));
-	entities.push_back(std::make_shared<Entity>(cubeMesh, materials[3]));
-	entities.push_back(std::make_shared<Entity>(helixMesh, materials[5]));
-	entities.push_back(std::make_shared<Entity>(cylinderMesh, materials[4]));
-	entities.push_back(std::make_shared<Entity>(torusMesh, materials[5]));
-	entities.push_back(std::make_shared<Entity>(quadMesh, materials[4]));
-	entities.push_back(std::make_shared<Entity>(quadDSMesh, materials[3]));
+	materials[4]->AddTextureSRV("Albedo", srvRoughAlbedo);
+	materials[4]->AddTextureSRV("NormalMap", srvRoughNormal);
+	materials[4]->AddTextureSRV("RoughnessMap", srvRoughRough);
+	materials[4]->AddTextureSRV("MetalnessMap", srvRoughMetal);
+	materials[4]->AddSampler("BasicSampler", samplerState);
 
-	float x = -9.0f;
+	materials[5]->AddTextureSRV("Albedo", srvScratchAlbedo);
+	materials[5]->AddTextureSRV("NormalMap", srvScratchNormal);
+	materials[5]->AddTextureSRV("RoughnessMap", srvScratchRough);
+	materials[5]->AddTextureSRV("MetalnessMap", srvScratchMetal);
+	materials[5]->AddSampler("BasicSampler", samplerState);
 
-	for (int i = 0; i < entities.size(); i++)
-	{
-		entities[i]->GetTransform()->MoveAbsolute(x, 0, 0);
-		x += 3.0f;
-	}
+	materials[6]->AddTextureSRV("Albedo", srvWoodAlbedo);
+	materials[6]->AddTextureSRV("NormalMap", srvWoodNormal);
+	materials[6]->AddTextureSRV("RoughnessMap", srvWoodRough);
+	materials[6]->AddTextureSRV("MetalnessMap", srvWoodMetal);
+	materials[6]->AddSampler("BasicSampler", samplerState);
+}
+
+void Game::loadShadows()
+{
+	// Create the actual texture that will be the shadow map
+	D3D11_TEXTURE2D_DESC shadowDesc = {};
+	shadowDesc.Width = (UINT)shadowMapResolution; // Ideally a power of 2 (like 1024)
+	shadowDesc.Height = (UINT)shadowMapResolution; // Ideally a power of 2 (like 1024)
+	shadowDesc.ArraySize = 1;
+	shadowDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	shadowDesc.CPUAccessFlags = 0;
+	shadowDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	shadowDesc.MipLevels = 1;
+	shadowDesc.MiscFlags = 0;
+	shadowDesc.SampleDesc.Count = 1;
+	shadowDesc.SampleDesc.Quality = 0;
+	shadowDesc.Usage = D3D11_USAGE_DEFAULT;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> shadowTexture;
+	device->CreateTexture2D(&shadowDesc, 0, shadowTexture.GetAddressOf());
+
+	// Create the depth/stencil view
+	D3D11_DEPTH_STENCIL_VIEW_DESC shadowDSDesc = {};
+	shadowDSDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	shadowDSDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	shadowDSDesc.Texture2D.MipSlice = 0;
+	device->CreateDepthStencilView(
+		shadowTexture.Get(),
+		&shadowDSDesc,
+		shadowDSV.GetAddressOf());
+
+	// Create the SRV for the shadow map
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	device->CreateShaderResourceView(
+		shadowTexture.Get(),
+		&srvDesc,
+		shadowSRV.GetAddressOf());
+
+	XMVECTOR newPosition = XMVectorSet(-(lights[0].Direction.x * 20), -(lights[0].Direction.y * 20), -(lights[0].Direction.z * 20), 0);
+	XMVECTOR lightDirection = XMVectorSet(lights[0].Direction.x, lights[0].Direction.y, lights[0].Direction.z, 0);
+	XMVECTOR upVec = XMVectorSet(0, 1, 0, 0);
+
+	XMMATRIX lightView = XMMatrixLookToLH(
+		newPosition,					// Position: "Backing up" 20 units from origin
+		lightDirection,					// Direction: light's direction
+		upVec);							// Up: World up vector (Y axis)
+	XMStoreFloat4x4(&lightViewMatrix, lightView);
+
+	lightProjectionSize = 15.0f;
+	XMMATRIX lightProjection = XMMatrixOrthographicLH(
+		lightProjectionSize,
+		lightProjectionSize,
+		1.0f,
+		100.0f);
+	XMStoreFloat4x4(&lightProjectionMatrix, lightProjection);
+
+	D3D11_RASTERIZER_DESC shadowRastDesc = {};
+	shadowRastDesc.FillMode = D3D11_FILL_SOLID;
+	shadowRastDesc.CullMode = D3D11_CULL_BACK;
+	shadowRastDesc.DepthClipEnable = true;
+	shadowRastDesc.DepthBias = 1000; // Min. precision units, not world units!
+	shadowRastDesc.SlopeScaledDepthBias = 1.0f; // Bias more based on slope
+	device->CreateRasterizerState(&shadowRastDesc, &shadowRasterizer);
+
+	D3D11_SAMPLER_DESC shadowSampDesc = {};
+	shadowSampDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+	shadowSampDesc.ComparisonFunc = D3D11_COMPARISON_LESS;
+	shadowSampDesc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+	shadowSampDesc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+	shadowSampDesc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+	shadowSampDesc.BorderColor[0] = 1.0f; // Only need the first component
+	device->CreateSamplerState(&shadowSampDesc, &shadowSampler);
 }
 
 
@@ -304,7 +476,7 @@ void Game::Update(float deltaTime, float totalTime)
 		ImGui::SetNextWindowSize(ImVec2(500, 400));
 
 		//Header Text for the Window
-		ImGui::Begin("Assignment 7 Window");
+		ImGui::Begin("Assignment 12 Window");
 
 		//Dropdown menu for app details
 		if (ImGui::TreeNode("App Details"))
@@ -442,7 +614,7 @@ void Game::Update(float deltaTime, float totalTime)
 
 				XMVECTOR normDirection = XMVector3Normalize(XMLoadFloat3(&lights[0].Direction));
 				XMStoreFloat3(&lights[0].Direction, normDirection);
-				ImGui::ColorEdit3("Color##1", &lights[0].Color.x, 0.1f);
+				ImGui::ColorEdit3("Color##1", &lights[0].Color.x);
 				ImGui::DragFloat("Intensity##1", &lights[0].Intensity, 0.01f, 0.0f);
 				ImGui::TreePop();
 			}
@@ -452,7 +624,7 @@ void Game::Update(float deltaTime, float totalTime)
 
 				XMVECTOR normDirection = XMVector3Normalize(XMLoadFloat3(&lights[1].Direction));
 				XMStoreFloat3(&lights[1].Direction, normDirection);
-				ImGui::ColorEdit3("Color##2", &lights[1].Color.x, 0.1f);
+				ImGui::ColorEdit3("Color##2", &lights[1].Color.x);
 				ImGui::DragFloat("Intensity##2", &lights[1].Intensity, 0.01f, 0.0f);
 				ImGui::TreePop();
 			}
@@ -462,14 +634,14 @@ void Game::Update(float deltaTime, float totalTime)
 
 				XMVECTOR normDirection = XMVector3Normalize(XMLoadFloat3(&lights[2].Direction));
 				XMStoreFloat3(&lights[2].Direction, normDirection);
-				ImGui::ColorEdit3("Color##3", &lights[2].Color.x, 0.1f);
+				ImGui::ColorEdit3("Color##3", &lights[2].Color.x);
 				ImGui::DragFloat("Intensity##3", &lights[2].Intensity, 0.01f, 0.0f);
 				ImGui::TreePop();
 			}
 			if (ImGui::TreeNode("Point Light 1"))
 			{
 				ImGui::DragFloat3("Position##1", &lights[3].Position.x, 0.1f);
-				ImGui::ColorEdit3("Color##4", &lights[3].Color.x, 0.1f);
+				ImGui::ColorEdit3("Color##4", &lights[3].Color.x);
 				ImGui::DragFloat("Intensity##4", &lights[3].Intensity, 0.01f, 0.0f);
 				ImGui::DragFloat("Range##1", &lights[3].Range, 0.1f, 0.0f);
 				ImGui::TreePop();
@@ -477,11 +649,23 @@ void Game::Update(float deltaTime, float totalTime)
 			if (ImGui::TreeNode("Point Light 2"))
 			{
 				ImGui::DragFloat3("Position##2", &lights[4].Position.x, 0.1f);
-				ImGui::ColorEdit3("Color##5", &lights[4].Color.x, 0.1f);
+				ImGui::ColorEdit3("Color##5", &lights[4].Color.x);
 				ImGui::DragFloat("Intensity##5", &lights[4].Intensity, 0.01f, 0.0f);
 				ImGui::DragFloat("Range##1", &lights[4].Range, 0.1f, 0.0f);
 				ImGui::TreePop();
 			}
+			ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNode("Shadows"))
+		{
+			ImGui::Image(shadowSRV.Get(), ImVec2(512, 512));
+			ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNode("Blur"))
+		{
+			ImGui::DragInt("Blur Amount", &blurAmt, 0.05f, 0, 10);
 			ImGui::TreePop();
 		}
 
@@ -500,6 +684,8 @@ void Game::Update(float deltaTime, float totalTime)
 		Quit();
 
 	activeCamera->Update(deltaTime);
+
+	entities[0]->GetTransform()->MoveAbsolute(0, 0, 0.001f);
 }
 
 // --------------------------------------------------------
@@ -517,17 +703,52 @@ void Game::Draw(float deltaTime, float totalTime)
 
 		// Clear the depth buffer (resets per-pixel occlusion information)
 		context->ClearDepthStencilView(depthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+		const float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f }; //Clear color
+		context->ClearRenderTargetView(ppRTV.Get(), clearColor);
 	}
 
-	XMFLOAT3 ambientColor = XMFLOAT3(0.1f, 0.1f, 0.25f);
+	renderShadows();
+
+	XMFLOAT3 ambientColor = XMFLOAT3(0.1f, 0.2f, 0.35f);
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> skyCube = sky->GetCubeMap();
+
+	context->OMSetRenderTargets(1, ppRTV.GetAddressOf(), depthBufferDSV.Get());
 
 	//Draws each of the entities
 	for (auto& e : entities)
 	{
+		std::shared_ptr<SimpleVertexShader> entityVS = e->GetMaterial()->GetVertexShader();
+		entityVS->SetMatrix4x4("lightView", lightViewMatrix);
+		entityVS->SetMatrix4x4("lightProjection", lightProjectionMatrix);
+
 		e->GetMaterial()->GetPixelShader()->SetData("lights", &lights[0], sizeof(Light) * (int)lights.size());
+
+		std::shared_ptr<SimplePixelShader> entityPS = e->GetMaterial()->GetPixelShader();
+		entityPS->SetShaderResourceView("ShadowMap", shadowSRV);
+		entityPS->SetSamplerState("ShadowSampler", shadowSampler);
+
 		e->Draw(context, activeCamera, deltaTime, XMFLOAT2((float)this->windowWidth, (float)this->windowHeight));
 		//e->Draw(context, activeCamera, srvPtr1, samplerState);
 	}
+
+	sky->Draw(context, *activeCamera);
+
+	context->OMSetRenderTargets(1, backBufferRTV.GetAddressOf(), 0);
+
+	// Activate shaders and bind resources
+	// Also set any required cbuffer data (not shown)
+	ppVS->SetShader();
+	ppPS->SetShader();
+	ppPS->SetInt("blurRadius", blurAmt);
+	ppPS->SetFloat("pixelWidth", (1.0f / windowWidth));
+	ppPS->SetFloat("pixelHeight", (1.0f / windowHeight));
+	ppPS->SetShaderResourceView("Pixels", ppSRV.Get());
+	ppPS->SetSamplerState("ClampSampler", ppSampler.Get());
+	ppPS->CopyAllBufferData();
+
+	context->Draw(3, 0); // Draw exactly 3 vertices (one triangle)
 
 	//ImGui
 	ImGui::Render();
@@ -547,5 +768,111 @@ void Game::Draw(float deltaTime, float totalTime)
 
 		// Must re-bind buffers after presenting, as they become unbound
 		context->OMSetRenderTargets(1, backBufferRTV.GetAddressOf(), depthBufferDSV.Get());
+
+		ID3D11ShaderResourceView* nullSRVs[128] = {};
+		context->PSSetShaderResources(0, 128, nullSRVs);
 	}
+}
+
+void Game::renderShadows()
+{
+	context->RSSetState(shadowRasterizer.Get());
+
+	// Clear the shadow map - resets depth values to 1.0
+	context->ClearDepthStencilView(shadowDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	// Set up the output merger state - Set shadow map as current depth buffer and unbind back buffer
+	// as we don't need any color output
+	ID3D11RenderTargetView* nullRTV{};
+	context->OMSetRenderTargets(1, &nullRTV, shadowDSV.Get());
+
+	// Deactivate pixel shader - Unbind to prevent pixel processing entirely
+	context->PSSetShader(0, 0, 0);
+
+	// Change viewport - We're about to render into the shadow map, so 
+	// the viewport needs to perfectly match the shadow map's resolution
+	D3D11_VIEWPORT viewport = {};
+	viewport.Width = (float)shadowMapResolution;
+	viewport.Height = (float)shadowMapResolution;
+	viewport.MaxDepth = 1.0f;
+	context->RSSetViewports(1, &viewport);
+
+	// Entity render loop - Loop through all scene entities and draw them using the specialized
+	// shadow map vertex shader described above. 
+	// AVOID the entity's material entirely (as that might activate a different set of shaders
+	// and we need no material data at all)
+	std::shared_ptr<SimpleVertexShader> shadowVS = std::make_shared<SimpleVertexShader>(device, context, FixPath(L"ShadowVS.cso").c_str());
+	shadowVS->SetShader();
+	shadowVS->SetMatrix4x4("view", lightViewMatrix);
+	shadowVS->SetMatrix4x4("projection", lightProjectionMatrix);
+
+	// Loop and draw all entities
+	for (auto& e : entities)
+	{
+		shadowVS->SetMatrix4x4("world", e->GetTransform()->GetWorldMatrix());
+		shadowVS->CopyAllBufferData();
+
+		// Draw the mesh directly to avoid the entity's material
+		// Note: Your code may differ significantly here!
+		e->GetMesh()->SetBuffersAndDraw(context);
+	}
+
+	// Reset the pipeline - Change pipeline settings back tot prepare to render to the screen once again
+	viewport.Width = (float)this->windowWidth;
+	viewport.Height = (float)this->windowHeight;
+	context->RSSetViewports(1, &viewport);
+	context->OMSetRenderTargets(
+		1,
+		backBufferRTV.GetAddressOf(),
+		depthBufferDSV.Get());
+
+	context->RSSetState(0);
+}
+
+void Game::ppSetup()
+{
+	// Sampler state for post processing
+	D3D11_SAMPLER_DESC ppSampDesc = {};
+	ppSampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	ppSampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	ppSampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	ppSampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	ppSampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+	device->CreateSamplerState(&ppSampDesc, ppSampler.GetAddressOf());
+
+	// Describe the texture we're creating
+	D3D11_TEXTURE2D_DESC textureDesc = {};
+	textureDesc.Width = windowWidth;
+	textureDesc.Height = windowHeight;
+	textureDesc.ArraySize = 1;
+	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	textureDesc.CPUAccessFlags = 0;
+	textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	textureDesc.MipLevels = 1;
+	textureDesc.MiscFlags = 0;
+	textureDesc.SampleDesc.Count = 1;
+	textureDesc.SampleDesc.Quality = 0;
+	textureDesc.Usage = D3D11_USAGE_DEFAULT;
+
+	// Create the resource (no need to track it after the views are created below)
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> ppTexture;
+	device->CreateTexture2D(&textureDesc, 0, ppTexture.GetAddressOf());
+
+	// Create the Render Target View
+	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = textureDesc.Format;
+	rtvDesc.Texture2D.MipSlice = 0;
+	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	device->CreateRenderTargetView(
+		ppTexture.Get(),
+		&rtvDesc,
+		ppRTV.ReleaseAndGetAddressOf());
+
+	// Create the Shader Resource View
+	// By passing it a null description for the SRV, we
+	// get a "default" SRV that has access to the entire resource
+	device->CreateShaderResourceView(
+		ppTexture.Get(),
+		0,
+		ppSRV.ReleaseAndGetAddressOf());
 }

@@ -19,6 +19,8 @@
 
 #include "Lights.h"
 
+#include "Sky.h"
+
 class Game 
 	: public DXCore
 {
@@ -48,11 +50,6 @@ private:
 	// Buffers to hold actual geometry data
 	Microsoft::WRL::ComPtr<ID3D11Buffer> vertexBuffer;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> indexBuffer;
-	
-	// Shaders and shader-related constructs
-	//Microsoft::WRL::ComPtr<ID3D11PixelShader> pixelShader;
-	//Microsoft::WRL::ComPtr<ID3D11VertexShader> vertexShader;
-	//Microsoft::WRL::ComPtr<ID3D11InputLayout> inputLayout;
 
 	std::shared_ptr<SimpleVertexShader> vertexShader;
 	std::shared_ptr<SimplePixelShader> pixelShader;
@@ -65,12 +62,6 @@ private:
 
 	std::vector<std::shared_ptr<Mesh>> meshes;
 
-	//Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
-
-	//Variables for Task 7, modifying offset and tint from UI
-	//DirectX::XMFLOAT3 offset;
-	//DirectX::XMFLOAT4 tint;
-
 	std::vector<std::shared_ptr<Entity>> entities;
 
 	std::shared_ptr<Camera> activeCamera;
@@ -79,23 +70,73 @@ private:
 
 	std::vector<std::shared_ptr<Material>> materials;
 
-	//Light directionalLight1;
-	//Light directionalLight2;
-	//Light directionalLight3;
-
-	//Light pointLight1;
-	//Light pointLight2;
-
 	std::vector<Light> lights;
 
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvTile;
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvTileSpec;
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBroken;
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBrokenSpec;
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvMetal;
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvMetalSpec;
+	void loadTextures(std::shared_ptr<Mesh> cubeMesh);
+	void loadMaterials();
+	void loadShadows();
+	void renderShadows();
+	void ppSetup();
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBronzeAlbedo;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBronzeMetal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBronzeNormal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBronzeRough;
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvCobbleAlbedo;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvCobbleMetal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvCobbleNormal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvCobbleRough;
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFloorAlbedo;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFloorMetal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFloorNormal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFloorRough;
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvPaintAlbedo;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvPaintMetal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvPaintNormal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvPaintRough;
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvRoughAlbedo;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvRoughMetal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvRoughNormal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvRoughRough;
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvScratchAlbedo;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvScratchMetal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvScratchNormal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvScratchRough;
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvWoodAlbedo;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvWoodMetal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvWoodNormal;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvWoodRough;
 
 	//D3D11_SAMPLER_DESC samplerDesc;
 	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerState;
+
+	std::shared_ptr<Sky> sky;
+
+	Microsoft::WRL::ComPtr<ID3D11DepthStencilView> shadowDSV;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shadowSRV;
+	Microsoft::WRL::ComPtr<ID3D11RasterizerState> shadowRasterizer;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> shadowSampler;
+	DirectX::XMFLOAT4X4 lightViewMatrix;
+	DirectX::XMFLOAT4X4 lightProjectionMatrix;
+
+	float shadowMapResolution;
+	float lightProjectionSize;
+
+	//Resources that are shared among all post processes
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> ppSampler;
+	std::shared_ptr<SimpleVertexShader> ppVS;
+
+	//Resources that are tied to a particular post process
+	std::shared_ptr<SimplePixelShader> ppPS;
+	Microsoft::WRL::ComPtr<ID3D11RenderTargetView> ppRTV; //For rendering
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> ppSRV; //For sampling
+
+	int blurAmt;
 };
 

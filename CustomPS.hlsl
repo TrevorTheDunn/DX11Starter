@@ -44,7 +44,7 @@ float4 main(VertexToPixel input) : SV_TARGET
 {
 	const float PI = acos(-1.0);
 
-	float2 uv = (2.0 * input.screenPosition - viewportResolution.xy) / viewportResolution.y;
+	float2 uv = (2.0 * input.screenPosition.xy - viewportResolution.xy) / viewportResolution.y;
 	uv *= 5.0;
 	float e = 35.0 / viewportResolution.y;
 

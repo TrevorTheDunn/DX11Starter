@@ -1,12 +1,16 @@
 #include "ShaderInclude.hlsli"
 
-Texture2D SurfaceTexture	:	register(t0);	//"t" registers for textures
-Texture2D SpecularTexture	:	register(t1);
-SamplerState BasicSampler	:	register(s0);	//"s" registers for samplers
+Texture2D Albedo						:	register(t0);	//"t" registers for textures
+Texture2D NormalMap						:	register(t1);
+Texture2D RoughnessMap					:	register(t2);
+Texture2D MetalnessMap					:	register(t3);
+Texture2D ShadowMap						:	register(t4);	// Adjust index as necessary
+SamplerState BasicSampler				:	register(s0);	//"s" registers for samplers
+SamplerComparisonState ShadowSampler	:	register(s1);
 
 cbuffer ExternalData : register(b0)
 {
-	float4 colorTint;
+	float3 colorTint;
 	float roughness;
 	float3 cameraPos;
 	float3 ambient;
@@ -19,24 +23,6 @@ cbuffer ExternalData : register(b0)
 	Light lights[5];	//Array of exactly 5 lights
 }
 
-// Struct representing the data we expect to receive from earlier pipeline stages
-// - Should match the output of our corresponding vertex shader
-// - The name of the struct itself is unimportant
-// - The variable names don't have to match other shaders (just the semantics)
-// - Each variable must have a semantic, which defines its usage
-//struct VertexToPixel
-//{
-//	// Data type
-//	//  |
-//	//  |   Name          Semantic
-//	//  |    |                |
-//	//  v    v                v
-//	float4 screenPosition	: SV_POSITION;
-//	//float4 color			: COLOR;
-//	float3 normal			: NORMAL;
-//	float2 uv				: TEXCOORD;
-//};
-
 // --------------------------------------------------------
 // The entry point (main method) for our pixel shader
 // 
@@ -48,17 +34,7 @@ cbuffer ExternalData : register(b0)
 // --------------------------------------------------------
 float4 main(VertexToPixel input) : SV_TARGET
 {
-	// Just return the input color
-	// - This color (like most values passing through the rasterizer) is 
-	//   interpolated for each pixel between the corresponding vertices 
-	//   of the triangle we're rendering
-
-	//return colorTint * ambient;
-
-	input.normal = normalize(input.normal);
-
-	/*input.normal = normalize(input.normal);
-	float3 normDir = normalize(-directionalLight1.Direction);
+	/*float3 normDir = normalize(-directionalLight1.Direction);
 	float3 diffuseAmt = calcDiffuse(input.normal, normDir);
 
 	float specExponent = (1.0f - roughness) * MAX_SPECULAR_EXPONENT;
@@ -73,40 +49,65 @@ float4 main(VertexToPixel input) : SV_TARGET
 
 	float3 finalColor = (light * directionalLight1.Intensity * directionalLight1.Color) + (ambient * colorTint);*/
 
-	float3 surfaceColor = SurfaceTexture.Sample(BasicSampler, input.uv).rgb;
+	// Perform the perspective divide (divide by w) ourselves
+	input.shadowMapPos /= input.shadowMapPos.w;
 
-	float specScale = SpecularTexture.Sample(BasicSampler, input.uv).r;
+	// Convert the normalized device coordinates to UVs for sampling
+	float2 shadowUV = input.shadowMapPos.xy * 0.5f + 0.5f;
+	shadowUV.y = 1 - shadowUV.y; // Flip the Y
 
-	//return float4(surfaceColor, 1.0f);
+	float distToLight = input.shadowMapPos.z;
 
-	surfaceColor *= colorTint;
+	// Get a ratio of comparison results using SampleCmpLevelZero()
+	float shadowAmount = ShadowMap.SampleCmpLevelZero(
+		ShadowSampler,
+		shadowUV,
+		distToLight).r;
 
-	float3 finalColor = ambient * surfaceColor;
+	float3 unpackedNormal = NormalMap.Sample(BasicSampler, input.uv).rgb * 2 - 1;
+	unpackedNormal = normalize(unpackedNormal);	//Don't forget to normalize
+
+	//Feel free to adjust/simplify this code to fit with your existing shader(s)
+	//Simplifications include not re-normalizing the same vector more than once!
+	float3 N = normalize(input.normal); //Must be normalized here or before
+	float3 T = normalize(input.tangent); //Must be normalized here or before
+	T = normalize(T - N * dot(T, N)); //Gram-Schmidt assumes T&N are normalized
+	float3 B = cross(T, N);
+	float3x3 TBN = float3x3(T, B, N);
+
+	//Assumes that input.normal is the normal later in the shader
+	input.normal = mul(unpackedNormal, TBN); //Note the multiplication order
+
+	float3 albedoColor = pow(Albedo.Sample(BasicSampler, input.uv).rgb, 2.2f);
+
+	float roughnessPBR = RoughnessMap.Sample(BasicSampler, input.uv).r;
+
+	float metalness = MetalnessMap.Sample(BasicSampler, input.uv).r;
+
+	float3 specularColor = lerp(F0_NON_METAL, albedoColor.rgb, metalness);
+
+	float3 finalColor = ambient;
+
+	float3 lightResult;
 
 	for (int i = 0; i < 5; i++)
 	{
 		switch (lights[i].Type)
 		{
 			case LIGHT_TYPE_DIRECTIONAL:
-				finalColor += DirLight(lights[i], input.normal, cameraPos, input.worldPosition, surfaceColor, roughness, specScale);
+				//finalColor += DirLight(lights[i], input.normal, cameraPos, input.worldPosition, albedoColor, roughness, specScale);
+				lightResult = DirLightPBR(lights[i], input.normal, cameraPos, input.worldPosition, albedoColor, specularColor, roughnessPBR, metalness);
+				if (i == 0) lightResult *= shadowAmount;
 				break;
 
 			case LIGHT_TYPE_POINT:
-				finalColor += PointLight(lights[i], input.normal, cameraPos, input.worldPosition, surfaceColor, roughness, specScale);
+				//finalColor += PointLight(lights[i], input.normal, cameraPos, input.worldPosition, albedoColor, roughness, specScale);
+				lightResult = PointLightPBR(lights[i], input.normal, cameraPos, input.worldPosition, albedoColor, specularColor, roughnessPBR, metalness);
 				break;
 		}
+
+		finalColor += lightResult;
 	}
 
-	//float3 dirLight1Final = DirLight(directionalLight1, input.normal, cameraPos, input.worldPosition, colorTint, roughness);
-	//float3 dirLight2Final = DirLight(directionalLight2, input.normal, cameraPos, input.worldPosition, colorTint, roughness);
-	//float3 dirLight3Final = DirLight(directionalLight3, input.normal, cameraPos, input.worldPosition, colorTint, roughness);
-	//float pointLight1Final = PointLight(pointLight1, input.normal, cameraPos, input.worldPosition, colorTint, roughness);
-	//float pointLight2Final = PointLight(pointLight2, input.normal, cameraPos, input.worldPosition, colorTint, roughness);
-
-	//float3 finalColor = dirLight1Final + dirLight2Final + dirLight3Final + pointLight1Final + pointLight2Final;
-
-	//return colorTint * float4(ambient, 1.0);
-	//return float4(input.normal, 1);
-	//return float4(directionalLight1.Color, 1);
-	return float4(finalColor, 1);
+	return float4(pow(finalColor, 1.0f / 2.2f), 1);
 }
